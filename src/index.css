@@ -643,15 +643,60 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .file-actions .btn { padding: 5px 11px; font-size: 13.5px; min-height: 36px; }
 
 /* ---------- typing test ---------- */
-.typing-text {
-  font-size: 19px;
-  line-height: 1.75;
+/* Compact controls: every mode picker lives in one or two tidy chip rows. */
+.typing-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.tc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; }
+.tc-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tc-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); margin-right: 2px; }
+.typing-controls .preset-chip { min-height: 36px; padding: 5px 12px; font-size: 13.5px; }
+.tc-check { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; min-height: 36px; cursor: pointer; }
+.tc-check input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--accent); }
+.tc-check input[type='checkbox']:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* Slim live stats bar: sticky under the site header, so the time, WPM,
+   accuracy and progress stay on screen while typing. */
+.typing-stats {
+  position: sticky;
+  top: 68px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px 22px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--nav-shadow);
+  padding: 8px 16px;
+  margin: 12px 0;
+}
+.ts-item { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+.ts-num { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ts-time .ts-num { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; color: var(--accent-dark); }
+.ts-lbl { font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
+.ts-progress { display: flex; align-items: center; gap: 9px; flex: 1 1 auto; min-width: 90px; }
+.ts-track { flex: 1 1 auto; min-width: 36px; height: 8px; border-radius: 999px; background: var(--meter-bg); overflow: hidden; }
+.ts-fill { height: 100%; border-radius: 999px; background: var(--accent); transition: width 0.2s; }
+
+/* Passage viewport: only about three lines are visible at a time. The
+   inner text is translated upwards as typing advances so the current
+   line stays in the middle of the window (see updateShift in
+   TypingTest.jsx). Height is three line boxes plus the inner padding. */
+.typing-viewport {
+  font-size: clamp(17px, 1vw + 13.5px, 20px);
+  line-height: 1.7;
   background: var(--field-bg);
   border: 1.5px solid var(--line);
   border-radius: 12px;
-  padding: 18px 20px;
-  letter-spacing: 0.01em;
+  height: calc(5.1em + 24px);
+  overflow: hidden;
   user-select: none;
+  cursor: text;
+}
+.typing-text {
+  position: relative;
+  padding: 12px 20px;
+  letter-spacing: 0.01em;
+  transition: transform 0.25s ease;
 }
 .typing-text span { border-radius: 3px; }
 .typing-text span.ok { color: var(--ok); }
@@ -733,6 +778,16 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .file-actions .btn { min-height: 44px; padding: 7px 12px; font-size: 14px; }
   .file-row .btn { min-height: 44px; }
   .checks label { min-height: 44px; }
+
+  /* typing test on phones: the stats bar stays one slim row and the
+     passage type drops a touch, keeping controls, time and text together */
+  .typing-stats { top: 62px; gap: 6px 13px; padding: 7px 12px; margin: 10px 0; }
+  .ts-time .ts-num { font-size: 22px; }
+  .ts-num { font-size: 15.5px; }
+  .ts-lbl { font-size: 10.5px; }
+  .ts-progress { min-width: 60px; }
+  .typing-viewport { font-size: 17.5px; }
+  .typing-text { padding: 12px 14px; }
   .dropzone { padding: 26px 16px; }
   textarea { min-height: 150px; }
   .stat-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }

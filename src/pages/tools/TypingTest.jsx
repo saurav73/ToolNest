@@ -319,6 +319,8 @@ export default function TypingTest() {
   const [newBest, setNewBest] = useState(false);
 
   const inputRef = useRef(null);
+  const viewportRef = useRef(null);
+  const innerRef = useRef(null);
   const intervalRef = useRef(null);
   const startRef = useRef(null);
   const typedRef = useRef('');
@@ -487,6 +489,38 @@ export default function TypingTest() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* --------------------- passage viewport scroll -------------------- */
+  // The passage shows through a three-line window (Monkeytype style). After
+  // every render, shift the inner text up so the line holding the current
+  // character sits in the middle of that window. Everything is read from
+  // refs and the DOM, never from render scope, and it only runs in effects,
+  // so prerendering is untouched: the server output has no shift, which
+  // shows the first three lines, exactly the correct starting position.
+  const updateShift = () => {
+    const inner = innerRef.current;
+    const view = viewportRef.current;
+    if (!inner || !view) return;
+    const kids = inner.children;
+    if (!kids.length) { inner.style.transform = ''; return; }
+    const idx = Math.min(Math.max(typedRef.current.length, 0), kids.length - 1);
+    const span = kids[idx];
+    if (!span) return;
+    const cs = window.getComputedStyle(inner);
+    const linePx = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.7;
+    let shift = Math.max(0, span.offsetTop - linePx);
+    const maxShift = Math.max(0, inner.scrollHeight - view.clientHeight);
+    if (shift > maxShift) shift = maxShift;
+    inner.style.transform = shift > 0 ? `translateY(${-shift}px)` : '';
+  };
+
+  useEffect(() => { updateShift(); });
+
+  useEffect(() => {
+    window.addEventListener('resize', updateShift);
+    return () => window.removeEventListener('resize', updateShift);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ------------------------- settings changes ----------------------- */
   // Every settings change resets the run with a freshly generated passage.
   const applySettings = (nextSettings) => {
@@ -628,69 +662,66 @@ export default function TypingTest() {
       faqs={FAQS}
       content={CONTENT}
     >
-      <div className="field" style={{ marginBottom: 10 }}>
-        <span style={{ display: 'block', fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Timed test</span>
-        <div className="preset-row" role="group" aria-label="Timed test length" style={{ margin: 0 }}>
-          {TIME_OPTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`preset-chip${kind === 'time' && timeValue === s ? ' active' : ''}`}
-              aria-pressed={kind === 'time' && timeValue === s}
-              onClick={() => chooseTimed(s)}
-            >
-              {s} seconds
-            </button>
-          ))}
+      <div className="typing-controls">
+        <div className="tc-row">
+          <div className="tc-group" role="group" aria-label="Timed test length">
+            <span className="tc-label" aria-hidden="true">Time</span>
+            {TIME_OPTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={`preset-chip${kind === 'time' && timeValue === s ? ' active' : ''}`}
+                aria-pressed={kind === 'time' && timeValue === s}
+                aria-label={`${s} seconds`}
+                onClick={() => chooseTimed(s)}
+              >
+                {s}s
+              </button>
+            ))}
+          </div>
+          <div className="tc-group" role="group" aria-label="Word count test length">
+            <span className="tc-label" aria-hidden="true">Words</span>
+            {WORD_OPTIONS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`preset-chip${kind === 'words' && wordValue === n ? ' active' : ''}`}
+                aria-pressed={kind === 'words' && wordValue === n}
+                aria-label={`${n} words`}
+                onClick={() => chooseWords(n)}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-
-      <div className="field" style={{ marginBottom: 10 }}>
-        <span style={{ display: 'block', fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Word count test</span>
-        <div className="preset-row" role="group" aria-label="Word count test length" style={{ margin: 0 }}>
-          {WORD_OPTIONS.map((n) => (
-            <button
-              key={n}
-              type="button"
-              className={`preset-chip${kind === 'words' && wordValue === n ? ' active' : ''}`}
-              aria-pressed={kind === 'words' && wordValue === n}
-              onClick={() => chooseWords(n)}
-            >
-              {n} words
-            </button>
-          ))}
+        <div className="tc-row">
+          <div className="tc-group" role="group" aria-label="Text type">
+            <span className="tc-label" aria-hidden="true">Text</span>
+            {TEXT_TYPES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`preset-chip${textType === t.id ? ' active' : ''}`}
+                aria-pressed={textType === t.id}
+                onClick={() => chooseTextType(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <label className="tc-check">
+            <input
+              type="checkbox"
+              checked={punctuation}
+              disabled={textType === 'custom'}
+              onChange={(e) => togglePunctuation(e.target.checked)}
+            />
+            Include punctuation
+          </label>
+          {textType === 'numbers' && <span className="hint">Adds decimals and comma-grouped thousands.</span>}
+          {textType === 'custom' && <span className="hint">Your own text is used exactly as pasted.</span>}
         </div>
-      </div>
-
-      <div className="field" style={{ marginBottom: 10 }}>
-        <span style={{ display: 'block', fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Text type</span>
-        <div className="preset-row" role="group" aria-label="Text type" style={{ margin: 0 }}>
-          {TEXT_TYPES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={`preset-chip${textType === t.id ? ' active' : ''}`}
-              aria-pressed={textType === t.id}
-              onClick={() => chooseTextType(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="checks" style={{ marginBottom: 6 }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={punctuation}
-            disabled={textType === 'custom'}
-            onChange={(e) => togglePunctuation(e.target.checked)}
-          />
-          Include punctuation
-        </label>
-        {textType === 'numbers' && <span className="hint">Adds decimals and comma-grouped thousands.</span>}
-        {textType === 'custom' && <span className="hint">Your own text is used exactly as pasted.</span>}
       </div>
 
       <p className="hint" style={{ margin: '4px 0 0' }} aria-live="polite">
@@ -734,32 +765,36 @@ export default function TypingTest() {
         </div>
       )}
 
-      <div className="stat-grid">
-        <div className="stat">
-          <div className="num">{kind === 'time' ? `${timeLeftSec}s` : formatClock(elapsedMs)}</div>
-          <div className="lbl">{kind === 'time' ? 'Time left' : 'Time elapsed'}</div>
+      <div className="typing-stats">
+        <div className="ts-item ts-time">
+          <span className="ts-num">{kind === 'time' ? formatClock(timeLeftSec * 1000) : formatClock(elapsedMs)}</span>
+          <span className="ts-lbl">{kind === 'time' ? 'Time left' : 'Elapsed'}</span>
         </div>
-        <div className="stat"><div className="num">{displayWpm}</div><div className="lbl">Words per minute</div></div>
-        <div className="stat"><div className="num">{stats.accuracy.toFixed(0)}%</div><div className="lbl">Accuracy</div></div>
-        <div className="stat"><div className="num">{stats.correct}</div><div className="lbl">Correct characters</div></div>
-        <div className="stat"><div className="num">{stats.incorrect}</div><div className="lbl">Incorrect characters</div></div>
-        <div className="stat">
-          <div className="num">{kind === 'time' ? `${Math.min(100, Math.round((elapsedMs / (timeValue * 1000)) * 100))}%` : `${wordsTyped} / ${totalWords}`}</div>
-          <div className="lbl">{kind === 'time' ? 'Time progress' : 'Words typed'}</div>
+        <div className="ts-item">
+          <span className="ts-num">{displayWpm}</span>
+          <span className="ts-lbl">WPM</span>
+        </div>
+        <div className="ts-item">
+          <span className="ts-num">{stats.accuracy.toFixed(0)}%</span>
+          <span className="ts-lbl">Accuracy</span>
+        </div>
+        <div className="ts-progress">
+          <div className="ts-track" aria-hidden="true">
+            <div className="ts-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+          <span className="ts-lbl">{kind === 'words' ? `${wordsTyped} / ${totalWords} words` : `${progressPct}% done`}</span>
         </div>
       </div>
 
-      <div className="meter" aria-hidden="true" style={{ margin: '10px 0 14px' }}>
-        <div style={{ width: `${kind === 'time' ? Math.min(100, (elapsedMs / (timeValue * 1000)) * 100) : progressPct}%`, background: 'var(--accent)' }} />
+      <div className="typing-viewport" ref={viewportRef} onClick={focusInput} aria-label="Passage to type. Click here, then type in the box below.">
+        {passage ? (
+          <div className="typing-text" ref={innerRef}>{chars}</div>
+        ) : (
+          <div className="typing-text">
+            Paste your text above and choose Use this text, and your passage will appear here.
+          </div>
+        )}
       </div>
-
-      {passage ? (
-        <div className="typing-text" aria-label="Passage to type" style={{ whiteSpace: 'pre-wrap' }}>{chars}</div>
-      ) : (
-        <div className="typing-text" aria-label="Passage to type">
-          Paste your text above and choose Use this text, and your passage will appear here.
-        </div>
-      )}
       {sources.length > 0 && (
         <p className="hint" style={{ marginTop: 8 }}>
           This passage includes lines attributed to {sources.join(', ')}.
