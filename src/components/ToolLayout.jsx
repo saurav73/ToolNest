@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useSeo, useJsonLd, faqJsonLd, breadcrumbJsonLd, SITE } from '../lib/seo.jsx';
 import { relatedTools, TOOLS } from '../data/tools.js';
@@ -21,6 +21,24 @@ export default function ToolLayout({
   children,
   content,
 }) {
+  // Record this visit for the homepage "Recently used" row. This is the
+  // single shared shell for every tool page, so recording here covers all
+  // tools. It runs only in an effect, after mount, so prerendering and
+  // SSR never touch localStorage. Key matches Home.jsx: toolnest-recent-tools.
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      const raw = window.localStorage.getItem('toolnest-recent-tools');
+      let prev = [];
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) prev = parsed.filter((s) => typeof s === 'string');
+      }
+      const next = [slug, ...prev.filter((s) => s !== slug)].slice(0, 8);
+      window.localStorage.setItem('toolnest-recent-tools', JSON.stringify(next));
+    } catch (e) { /* private mode or blocked storage */ }
+  }, [slug]);
+
   useSeo({ title, description, path });
   useJsonLd(`faq-${slug}`, faqs.length ? faqJsonLd(faqs) : null);
   useJsonLd(`crumb-${slug}`, breadcrumbJsonLd(h1, path));

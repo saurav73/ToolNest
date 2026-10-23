@@ -4,6 +4,7 @@
 export const TOOLS = [
   {
     slug: 'word-counter',
+    popular: true,
     path: '/word-counter',
     name: 'Word Counter',
     category: 'Text Tools',
@@ -28,6 +29,7 @@ export const TOOLS = [
   },
   {
     slug: 'password-generator',
+    popular: true,
     path: '/password-generator',
     name: 'Password Generator',
     category: 'Generators',
@@ -36,6 +38,7 @@ export const TOOLS = [
   },
   {
     slug: 'qr-code-generator',
+    popular: true,
     path: '/qr-code-generator',
     name: 'QR Code Generator',
     category: 'Generators',
@@ -44,6 +47,7 @@ export const TOOLS = [
   },
   {
     slug: 'json-formatter',
+    popular: true,
     path: '/json-formatter',
     name: 'JSON Formatter',
     category: 'Developer Tools',
@@ -116,6 +120,7 @@ export const TOOLS = [
   },
   {
     slug: 'image-compressor',
+    popular: true,
     path: '/image-compressor',
     name: 'Image Compressor',
     category: 'Image Tools',
@@ -188,6 +193,7 @@ export const TOOLS = [
   },
   {
     slug: 'merge-pdf',
+    popular: true,
     path: '/merge-pdf',
     name: 'Merge PDF',
     category: 'PDF Tools',
@@ -236,6 +242,7 @@ export const TOOLS = [
   },
   {
     slug: 'heic-to-jpg',
+    popular: true,
     path: '/heic-to-jpg',
     name: 'HEIC to JPG Converter',
     category: 'Image Tools',
@@ -308,6 +315,7 @@ export const TOOLS = [
   },
   {
     slug: 'invoice-generator',
+    popular: true,
     path: '/invoice-generator',
     name: 'Invoice Generator',
     category: 'Business Tools',
