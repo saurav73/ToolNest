@@ -1,0 +1,67 @@
+# ToolNest - llms.txt
+
+## What this site is
+ToolNest (https://toolnest-sage.vercel.app) is a free collection of small online tools for writers, students and developers, built by Saurav Shrestha. Every tool runs entirely in the visitor's web browser using JavaScript: no sign-up, no uploads, no server processing, and nothing the user types or drops is stored or shared. Each tool has its own page with the working tool at the top, a plain-language explanation of how it works, worked examples, and a short FAQ.
+
+## How the tools work
+- All processing is client-side. Text tools compute in the page as the user types; file tools (PDF and image) read files into browser memory, process them locally with open source libraries (pdf-lib, pdf.js, canvas), and offer the result as a download. Files never leave the user's device.
+- There are no accounts, no usage limits and no fees.
+
+## Text tools
+- /word-counter - Word Counter: counts words, characters, sentences, paragraphs, reading time and speaking time, with keyword density for the top terms.
+- /character-counter - Character Counter: counts characters with and without spaces, letters and digits, with checks against common platform limits.
+- /case-converter - Case Converter: converts text to UPPERCASE, lowercase, Title Case, Sentence case, alternating case and more.
+- /remove-duplicate-lines - Remove Duplicate Lines: deletes repeated lines from a list, with sort A to Z and reverse options.
+- /text-reverser - Text Reverser: reverses characters, reverses word order, or flips every word in the text.
+- /word-frequency-counter - Word Frequency Counter: counts how often every word appears and shows a sorted table.
+- /text-to-speech - Text to Speech: reads pasted text aloud with a choice of the browser's voices and reading speed controls.
+- /typing-speed-test - Typing Speed Test: a 60 second test that measures words per minute with a live accuracy score.
+
+## Image tools
+- /image-compressor - Image Compressor: shrinks JPG, PNG and WebP images with a quality slider, or to an exact target size (20KB, 50KB, 100KB, 200KB, 500KB or 1MB), with a before/after size comparison.
+- /heic-to-jpg - HEIC to JPG Converter: converts iPhone HEIC and HEIF photos to JPG in batches using an on-device WebAssembly decoder, so photos are never uploaded.
+- /heic-to-png - HEIC to PNG Converter: converts HEIC and HEIF photos to lossless PNG in batches, decoded on the device.
+- /avif-to-jpg - AVIF to JPG Converter: converts AVIF images to JPG for compatibility with forms, apps and printers, using the browser's built in AVIF decoder.
+- /compress-image-to-50kb - Compress Image to 50KB: the image compressor preset to a 50KB target for government forms, exam portals and ID photos.
+- /compress-image-to-100kb - Compress Image to 100KB: preset to a 100KB target for email attachments and fast web pages.
+- /compress-image-to-200kb - Compress Image to 200KB: preset to a 200KB target for job applications and document portals.
+- /image-to-text - Image to Text Converter: OCR (Tesseract running in the browser) that extracts text from photos, scans and screenshots; the image is never uploaded. English text.
+- /image-converter - Image Converter: converts images between JPG, PNG and WebP in any direction.
+- /png-to-jpg - PNG to JPG Converter: converts PNG to JPG for smaller files that work everywhere; transparent areas go onto white.
+- /jpg-to-png - JPG to PNG Converter: converts JPG to lossless PNG so repeated editing stops degrading the image.
+- /webp-to-png - WebP to PNG Converter: converts WebP to PNG so files saved from the web open in any app or editor.
+- /webp-to-jpg - WebP to JPG Converter: converts WebP to JPG for maximum compatibility with forms, apps and email.
+- /png-to-webp - PNG to WebP Converter: converts PNG to WebP, typically a third smaller, with transparency preserved.
+- /jpg-to-webp - JPG to WebP Converter: converts JPG photos to WebP, typically 25 to 35 percent smaller at the same quality.
+- /image-resizer - Image Resizer: resizes an image to exact pixel dimensions with aspect ratio lock and presets.
+
+## PDF tools
+- /merge-pdf - Merge PDF: combines multiple PDF files into one document in the chosen order, losslessly.
+- /split-pdf - Split PDF: extracts a page range from a PDF or saves every page as its own file.
+- /jpg-to-pdf - JPG to PDF: turns one or more images into a single PDF with A4, Letter or fit-to-image page sizes.
+- /compress-pdf - Compress PDF: reduces PDF file size by re-rendering pages in the browser, with before/after sizes. Note: text in the output is part of the rendered image and is not selectable.
+- /pdf-to-jpg - PDF to JPG Converter: renders PDF pages to JPG images at 72 to 216 DPI, by page range, with per page and ZIP downloads.
+- /pdf-to-png - PDF to PNG Converter: renders PDF pages to lossless PNG images at up to 216 DPI, by page range, with per page and ZIP downloads.
+
+## Generators and developer tools
+- /password-generator - Password Generator: creates strong random passwords with length and character toggles and a strength meter, using the Web Crypto API, plus a memorable passphrase mode that builds passwords from random words.
+- /qr-code-generator - QR Code Generator: turns text or links into QR codes with colors, gradients, shapes and an optional center logo or image, downloadable as PNG or SVG.
+- /random-number-generator - Random Number Generator: generates random numbers in any range, with a no-duplicates option for draws and raffles.
+- /json-formatter - JSON Formatter: formats, minifies and validates JSON with error messages that point at the problem.
+- /base64-encoder-decoder - Base64 Encoder / Decoder: encodes text to Base64 or decodes it back, with full Unicode support.
+- /slug-generator - Slug Generator: turns titles and phrases into clean URL-friendly slugs.
+- /lorem-ipsum-generator - Lorem Ipsum Generator: generates placeholder text by paragraph, sentence or word.
+
+## Business tools
+- /invoice-generator - Invoice Generator: creates professional PDF invoices in the browser with business and client details, optional logo, itemised lines, tax and discount percentages, currency selection and live totals; download as PDF or print. Data never leaves the device.
+
+## Email tools
+- /gmail-dot-generator - Gmail Dot Trick Generator: generates every dot variation and alias of any email address with the total count, copy-all and txt/csv downloads. On Gmail and Google Workspace, where dots in the username are ignored, all variants deliver to the same inbox; on most other providers dots count as different characters.
+
+## Site pages
+- / - ToolNest home: the full tool index with search and category sections.
+- /about - About: what ToolNest is, why it exists, and who builds it (Saurav Shrestha).
+- /contact - Contact: how to reach the site owner.
+- /privacy - Privacy Policy: what data the site does and does not collect, including the Google advertising data-use disclosure.
+- /terms - Terms of Use.
+- /disclaimer - Disclaimer: results are provided as-is; tools are not professional advice.

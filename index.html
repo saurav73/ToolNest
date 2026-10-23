@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ToolNest: Free Online Tools for Text, Passwords and More</title>
+    <meta name="description" content="Free online tools for writers, students and developers: word counter, password generator, QR codes, JSON formatter and more. No sign-up." />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="ToolNest" />
+    <meta name="google-site-verification" content="pSZ3CTr13kSjDBYR06i_zsBAIoqL7XLfzh6Vz94gTmA" />
+    <link rel="canonical" href="https://toolnest-sage.vercel.app/" />
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ToolNest" />
+    <meta property="og:title" content="ToolNest: Free Online Tools for Text, Passwords and More" />
+    <meta property="og:description" content="Free online tools for writers, students and developers. Everything runs in your browser, nothing is uploaded or stored." />
+    <meta property="og:url" content="https://toolnest-sage.vercel.app/" />
+    <meta property="og:image" content="https://toolnest-sage.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ToolNest: free online tools that run in your browser" />
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ToolNest: Free Online Tools" />
+    <meta name="twitter:description" content="Word counter, password generator, QR code generator, JSON formatter and more free tools that run entirely in your browser." />
+    <meta name="twitter:image" content="https://toolnest-sage.vercel.app/og-image.png" />
+    <!-- Structured data: site + publisher (static, present on every page) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://toolnest-sage.vercel.app/#website",
+          "name": "ToolNest",
+          "url": "https://toolnest-sage.vercel.app",
+          "description": "Free online tools for writers, students and developers. Every tool runs entirely in your browser: no sign-up, no uploads, nothing stored.",
+          "publisher": { "@id": "https://toolnest-sage.vercel.app/#organization" }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://toolnest-sage.vercel.app/#organization",
+          "name": "ToolNest",
+          "url": "https://toolnest-sage.vercel.app",
+          "logo": "https://toolnest-sage.vercel.app/favicon.svg",
+          "founder": { "@type": "Person", "name": "Saurav Shrestha" }
+        }
+      ]
+    }
+    </script>
+    <meta name="theme-color" content="#4f46e5" />
+    <!-- Theme: set data-theme before first paint (saved choice, else OS preference) -->
+    <script>
+      (function () {
+        var t = 'light';
+        try {
+          t = localStorage.getItem('toolnest-theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+        } catch (e) { /* storage unavailable: stay light */ }
+        document.documentElement.setAttribute('data-theme', t);
+        if (t === 'dark') {
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', '#0b0f17');
+        }
+      })();
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1184879199231987" crossorigin="anonymous"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" /></noscript>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
