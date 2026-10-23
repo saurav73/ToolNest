@@ -33,6 +33,51 @@ function niceDate(iso) {
 let rowSeq = 0;
 const newRow = () => ({ id: (rowSeq += 1), desc: '', qty: 1, rate: 0 });
 
+const TEMPLATES = [
+  { id: 'classic', name: 'Classic' },
+  { id: 'modern', name: 'Modern' },
+  { id: 'minimal', name: 'Minimal' },
+  { id: 'bold', name: 'Bold' },
+];
+
+const ACCENTS = [
+  { name: 'Purple', hex: '#4F46E5' },
+  { name: 'Blue', hex: '#2563EB' },
+  { name: 'Teal', hex: '#0F766E' },
+  { name: 'Green', hex: '#15803D' },
+  { name: 'Orange', hex: '#EA580C' },
+  { name: 'Crimson', hex: '#DC143C' },
+  { name: 'Charcoal', hex: '#374151' },
+  { name: 'Navy', hex: '#1E3A5F' },
+];
+
+const DESIGN_KEY = 'toolnest-invoice-design';
+const HEX_RE = /^#[0-9a-f]{6}$/i;
+
+/** Read the saved design (template + accent only, never invoice data). */
+function loadDesign() {
+  if (typeof window === 'undefined') return {};
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(DESIGN_KEY) || 'null');
+    if (!saved) return {};
+    return {
+      template: TEMPLATES.some((t) => t.id === saved.template) ? saved.template : undefined,
+      accent: HEX_RE.test(saved.accent || '') ? saved.accent : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** Darker shade of a #rrggbb colour, used for the INVOICE title in the preview. */
+function shade(hex, f) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return '#4338ca';
+  const n = parseInt(m[1], 16);
+  const ch = (v) => Math.max(0, Math.min(255, Math.round(v * f))).toString(16).padStart(2, '0');
+  return `#${ch((n >> 16) & 255)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
+}
+
 const FAQS = [
   {
     q: 'Is this invoice generator really free, with no sign-up?',
@@ -49,6 +94,10 @@ const FAQS = [
   {
     q: 'What currencies are supported?',
     a: 'USD by default, plus EUR, GBP, INR, NPR, AUD, CAD, JPY, AED and SGD. The on screen preview formats amounts with the proper currency symbol, and the PDF prints the currency code with the amount so it prints correctly on any system.',
+  },
+  {
+    q: 'Can I customise the design and colour of my invoice?',
+    a: 'Yes. Choose from four templates: Classic, Modern with a colour band header, Minimal with greys only, and Bold with a filled colour table header. Pick an accent colour from the presets or set any custom colour of your own. The preview updates as you choose, and the PDF is built with the same template and colour, so what you see is exactly what prints. Your design choice is remembered on this device for next time; your invoice details are never stored.',
   },
 ];
 
@@ -96,7 +145,9 @@ const CONTENT = (
       browser. The invoice is drawn as real text and lines on an A4 page, not
       a screenshot of the preview, so the file stays tiny, the text stays
       selectable in any PDF reader, and it prints sharply at any size. Your
-      logo is embedded as an image at the top. Long item lists flow onto a
+      logo is embedded as an image at the top. Your chosen template and
+      accent colour are drawn in with the same layout rules as the preview,
+      so the PDF you send matches the invoice you saw on screen. Long item lists flow onto a
       second page automatically with the table header repeated, and the
       totals always sit under the final row. Because generation is local,
       the tenth invoice of the month is exactly as private as the first, and
@@ -140,6 +191,8 @@ export default function InvoiceGenerator() {
   const [discountPct, setDiscountPct] = useState(0);
   const [notes, setNotes] = useState('');
   const [logo, setLogo] = useState(null); // {dataUrl, kind: 'png'|'jpg'}
+  const [template, setTemplate] = useState(() => loadDesign().template || 'classic');
+  const [accent, setAccent] = useState(() => loadDesign().accent || '#4F46E5');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -152,6 +205,13 @@ export default function InvoiceGenerator() {
     setDueDate(iso(due));
   }, []);
 
+  /* Remember only the design (template + accent colour), never invoice data. */
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DESIGN_KEY, JSON.stringify({ template, accent }));
+    } catch { /* storage unavailable: the design simply will not persist */ }
+  }, [template, accent]);
+
   const totals = useMemo(() => {
     const subtotal = items.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.rate) || 0), 0);
     const discount = subtotal * ((Number(discountPct) || 0) / 100);
@@ -159,6 +219,8 @@ export default function InvoiceGenerator() {
     const tax = taxable * ((Number(taxPct) || 0) / 100);
     return { subtotal, discount, taxable, tax, total: taxable + tax };
   }, [items, taxPct, discountPct]);
+
+  const isCustomAccent = !ACCENTS.some((c) => c.hex.toLowerCase() === accent.toLowerCase());
 
   const setRow = (id, key, value) => setItems((rows) => rows.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
   const addRow = () => setItems((rows) => [...rows, newRow()]);
@@ -186,7 +248,22 @@ export default function InvoiceGenerator() {
       const bold = await doc.embedFont(StandardFonts.HelveticaBold);
       const ink = rgb(0.11, 0.14, 0.2);
       const gray = rgb(0.38, 0.42, 0.48);
-      const accent = rgb(0.31, 0.27, 0.9);
+      const white = rgb(1, 1, 1);
+      const onAccent = rgb(0.92, 0.93, 1);
+      const hexRgb = (hex) => {
+        const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+        if (!m) return rgb(0.31, 0.27, 0.9);
+        const n = parseInt(m[1], 16);
+        return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+      };
+      const isMinimal = template === 'minimal';
+      const isModern = template === 'modern';
+      const isBold = template === 'bold';
+      const accentCol = hexRgb(accent);
+      const titleCol = isModern ? white : isMinimal ? ink : accentCol;
+      const ruleCol = isMinimal ? rgb(0.78, 0.8, 0.85) : accentCol;
+      const headFill = isBold ? accentCol : isMinimal ? null : rgb(0.93, 0.94, 0.97);
+      const headTextCol = isBold ? white : gray;
       const PAGE_W = 595.28;
       const PAGE_H = 841.89;
       const M = 50;
@@ -217,6 +294,9 @@ export default function InvoiceGenerator() {
 
       /* header */
       let headX = M;
+      if (isModern) {
+        page.drawRectangle({ x: 0, y: PAGE_H - 118, width: PAGE_W, height: 118, color: accentCol });
+      }
       if (logo) {
         try {
           const bytes = Uint8Array.from(atob(logo.dataUrl.split(',')[1]), (c) => c.charCodeAt(0));
@@ -228,17 +308,21 @@ export default function InvoiceGenerator() {
           headX = M + img.width * sc + 16;
         } catch { /* logo is decorative; carry on without it */ }
       }
-      text(bizName || 'Your Business', headX, y, 16, bold);
+      text(bizName || 'Your Business', headX, y, isBold ? 20 : 16, bold, isModern ? white : ink);
       const contact = [bizEmail, bizAddress].filter(Boolean).join('  |  ');
-      if (contact) { y -= 16; wrap(contact, RIGHT - headX, 9, font).slice(0, 2).forEach((ln) => { text(ln, headX, y, 9, font, gray); y -= 12; }); }
-      rightText('INVOICE', RIGHT, PAGE_H - 56, 24, bold, accent);
-      rightText(`Invoice no: ${number || ''}`, RIGHT, PAGE_H - 86, 10, font, gray);
-      rightText(`Issued: ${niceDate(issueDate)}`, RIGHT, PAGE_H - 100, 10, font, gray);
-      rightText(`Due: ${niceDate(dueDate)}`, RIGHT, PAGE_H - 114, 10, font, gray);
+      if (contact) { y -= 16; wrap(contact, RIGHT - headX, 9, font).slice(0, 2).forEach((ln) => { text(ln, headX, y, 9, font, isModern ? onAccent : gray); y -= 12; }); }
+      rightText('INVOICE', RIGHT, PAGE_H - 56, 24, bold, titleCol);
+      rightText(`Invoice no: ${number || ''}`, RIGHT, PAGE_H - 86, 10, font, isModern ? onAccent : gray);
+      rightText(`Issued: ${niceDate(issueDate)}`, RIGHT, PAGE_H - 100, 10, font, isModern ? onAccent : gray);
+      rightText(`Due: ${niceDate(dueDate)}`, RIGHT, PAGE_H - 114, 10, font, isModern ? onAccent : gray);
 
-      y = Math.min(y - 18, PAGE_H - 146);
-      page.drawLine({ start: { x: M, y }, end: { x: RIGHT, y }, thickness: 1, color: accent });
-      y -= 26;
+      if (isModern) {
+        y = PAGE_H - 118 - 28;
+      } else {
+        y = Math.min(y - 18, PAGE_H - 146);
+        page.drawLine({ start: { x: M, y }, end: { x: RIGHT, y }, thickness: isBold ? 2.5 : isMinimal ? 0.75 : 1, color: ruleCol });
+        y -= 26;
+      }
 
       /* bill to */
       text('BILL TO', M, y, 9.5, bold, gray);
@@ -256,11 +340,11 @@ export default function InvoiceGenerator() {
       const colRateR = 458;
       const colAmtR = RIGHT;
       const drawHeader = () => {
-        page.drawRectangle({ x: M, y: y - 4, width: RIGHT - M, height: 19, color: rgb(0.93, 0.94, 0.97) });
-        text('Description', colDesc + 6, y, 9.5, bold, gray);
-        rightText('Qty', colQtyR, y, 9.5, bold, gray);
-        rightText('Rate', colRateR, y, 9.5, bold, gray);
-        rightText('Amount', colAmtR - 4, y, 9.5, bold, gray);
+        if (headFill) page.drawRectangle({ x: M, y: y - 4, width: RIGHT - M, height: 19, color: headFill });
+        text('Description', colDesc + 6, y, 9.5, bold, headTextCol);
+        rightText('Qty', colQtyR, y, 9.5, bold, headTextCol);
+        rightText('Rate', colRateR, y, 9.5, bold, headTextCol);
+        rightText('Amount', colAmtR - 4, y, 9.5, bold, headTextCol);
         y -= 20;
       };
       drawHeader();
@@ -296,7 +380,7 @@ export default function InvoiceGenerator() {
       totRow('Subtotal', pdfMoney(totals.subtotal, currency));
       if (totals.discount > 0) totRow(`Discount (${Number(discountPct) || 0}%)`, `-${pdfMoney(totals.discount, currency)}`);
       if (totals.tax > 0) totRow(`Tax (${Number(taxPct) || 0}%)`, pdfMoney(totals.tax, currency));
-      page.drawLine({ start: { x: totX, y: y + 6 }, end: { x: RIGHT, y: y + 6 }, thickness: 1, color: accent });
+      page.drawLine({ start: { x: totX, y: y + 6 }, end: { x: RIGHT, y: y + 6 }, thickness: 1, color: ruleCol });
       totRow('Total due', pdfMoney(totals.total, currency), true, 13);
 
       /* notes */
@@ -324,7 +408,7 @@ export default function InvoiceGenerator() {
       slug="invoice-generator"
       path="/invoice-generator"
       title="Invoice Generator Free: Create PDF Invoices | ToolNest"
-      description="Create professional PDF invoices free in your browser. Add items, tax and a logo, then download or print. No sign-up, nothing stored."
+      description="Create professional PDF invoices free in your browser. Choose a template and colour, add items, tax and a logo, then download. No sign-up."
       h1="Invoice Generator"
       intro="Create a clean, professional PDF invoice in your browser: your details, your client, itemised work, tax and totals, computed live. No sign-up, no watermark, and your data never leaves your device."
       faqs={FAQS}
@@ -357,6 +441,74 @@ export default function InvoiceGenerator() {
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+        </div>
+
+        <div
+          className="field inv-design-field"
+          style={{ '--inv-accent': accent, '--inv-accent-dark': shade(accent, 0.85) }}
+        >
+          <label id="inv-design-label">Invoice design</label>
+          <div className="inv-design-grid" role="group" aria-labelledby="inv-design-label">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`inv-design-card${template === t.id ? ' active' : ''}`}
+                aria-pressed={template === t.id}
+                onClick={() => setTemplate(t.id)}
+              >
+                <span className={`inv-mini inv-mini-${t.id}`} aria-hidden="true">
+                  <span className="inv-mini-band">
+                    <span className="inv-mini-brand"><i /><i /></span>
+                    <span className="inv-mini-doc-title" />
+                  </span>
+                  <span className="inv-mini-rule" />
+                  <span className="inv-mini-bill"><i /><i /></span>
+                  <span className="inv-mini-table"><i className="inv-mini-table-head" /><i /><i /></span>
+                  <span className="inv-mini-total" />
+                </span>
+                <span className="inv-design-name">{t.name}</span>
+                {template === t.id && <span className="inv-design-selected">Selected</span>}
+              </button>
+            ))}
+          </div>
+
+          <div className="inv-color-heading" id="inv-colour-label">Accent colour</div>
+          <div className="inv-color-grid" role="group" aria-labelledby="inv-colour-label">
+            {ACCENTS.map((c) => {
+              const selected = accent.toLowerCase() === c.hex.toLowerCase();
+              return (
+                <button
+                  key={c.hex}
+                  type="button"
+                  className={`inv-color-choice${selected ? ' active' : ''}`}
+                  aria-pressed={selected}
+                  aria-label={`${c.name} accent colour`}
+                  title={`${c.name} ${c.hex}`}
+                  disabled={template === 'minimal'}
+                  onClick={() => setAccent(c.hex)}
+                >
+                  <span className="inv-color-chip" style={{ background: c.hex }} aria-hidden="true" />
+                  <span>{c.name}</span>
+                </button>
+              );
+            })}
+            <label className={`inv-color-choice inv-color-custom${isCustomAccent ? ' active' : ''}`} title={`Custom colour ${accent}`}>
+              <input
+                type="color"
+                value={accent}
+                disabled={template === 'minimal'}
+                onChange={(e) => setAccent(e.target.value)}
+                aria-label="Custom accent colour"
+              />
+              <span>Custom</span>
+            </label>
+          </div>
+          <p className="hint">
+            {template === 'minimal'
+              ? 'Minimal uses greys only, so the accent colour is paused for this template. Your template choice is remembered on this device.'
+              : 'Each card previews the design in your chosen colour. The same template and colour are used in the live preview and downloaded PDF, and the choice is remembered on this device.'}
+          </p>
         </div>
 
         <div className="row">
@@ -432,7 +584,11 @@ export default function InvoiceGenerator() {
       </div>
 
       <h2 className="no-print" style={{ marginTop: 28 }}>Live preview</h2>
-      <div className="invoice-sheet" aria-label="Invoice preview">
+      <div
+        className={`invoice-sheet inv-tpl-${template}`}
+        style={{ '--inv-accent': accent, '--inv-accent-dark': shade(accent, 0.85) }}
+        aria-label="Invoice preview"
+      >
         <div className="inv-sheet-head">
           <div>
             {logo && <img src={logo.dataUrl} alt="" className="inv-sheet-logo" />}
