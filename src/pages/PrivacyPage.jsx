@@ -51,7 +51,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           ToolNest may display advertising served by Google AdSense (publisher ID
-          ca-pub-1184879199231987). Google and its partners may use cookies to serve
+          ca-pub-2916398249911672). Google and its partners may use cookies to serve
           ads based on your prior visits to this and other websites. You can learn how
           Google uses data at{' '}
           <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">
