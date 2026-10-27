@@ -6,6 +6,17 @@ import { formatBytes, downloadBlob, holdAtLeast, loadImageFromFile, imageToCanva
 
 const PRESETS = [25, 50, 75, 100, 150, 200];
 
+// One-click exact dimensions for the most-used social platforms (iLoveIMG offers
+// the same "social media presets" pattern on its resizer).
+const SOCIAL_PRESETS = [
+  { label: 'Instagram post', w: 1080, h: 1080 },
+  { label: 'Instagram story', w: 1080, h: 1920 },
+  { label: 'Facebook post', w: 1200, h: 630 },
+  { label: 'YouTube thumbnail', w: 1280, h: 720 },
+  { label: 'X post', w: 1200, h: 675 },
+  { label: 'Pinterest pin', w: 1000, h: 1500 },
+];
+
 const FAQS = [
   {
     q: 'What does "keep aspect ratio" mean?',
@@ -17,7 +28,7 @@ const FAQS = [
   },
   {
     q: 'What size should I use for websites and social media?',
-    a: 'Common targets: 1200 px wide for blog and Open Graph images, 1080 by 1080 for Instagram posts, 1500 px wide for Pinterest pins (with height around 2250), and 1920 px wide for full-width hero images. Smaller is faster, so avoid shipping images wider than they will ever be displayed.',
+    a: 'Common targets: 1200 px wide for blog and Open Graph images, 1080 by 1080 for Instagram posts, 1500 px wide for Pinterest pins (with height around 2250), and 1920 px wide for full-width hero images. The social media presets above set the exact recommended dimensions for Instagram, Facebook, YouTube, X and Pinterest in one click, and they switch the aspect ratio lock off because each platform wants a precise shape. Smaller is faster, so avoid shipping images wider than they will ever be displayed.',
   },
   {
     q: 'Does resizing change the file format?',
@@ -32,7 +43,9 @@ const CONTENT = (
       Whether a platform demands 1080 by 1080 or you just need a smaller file for a
       web page, this resizer changes an image's pixel dimensions in your browser.
       Lock the aspect ratio to keep proportions perfect, use the percentage presets
-      for quick scaling, and download the result in the original format.
+      for quick scaling, jump straight to a social media preset (Instagram, Facebook,
+      YouTube and more) for exact platform dimensions, and download the result in
+      the original format.
     </p>
     <h2>Resizing versus compressing</h2>
     <p>
@@ -132,6 +145,13 @@ export default function ImageResizer() {
     setWidth(Math.max(1, Math.round((img.naturalWidth * pct) / 100)));
     setHeight(Math.max(1, Math.round((img.naturalHeight * pct) / 100)));
   };
+  const applySocialPreset = (w, h) => {
+    if (!img) return;
+    // Platforms want exact shapes, so a social preset unlocks the aspect ratio.
+    setLock(false);
+    setWidth(w);
+    setHeight(h);
+  };
 
   const resize = async () => {
     if (!img || !file || !width || !height) return;
@@ -160,7 +180,7 @@ export default function ImageResizer() {
       title="Image Resizer: Resize Images by Pixels Online | ToolNest"
       description="Resize JPG, PNG and WebP images to exact pixels with aspect ratio lock and scale presets. In your browser, no upload, instant download."
       h1="Image Resizer"
-      intro="Resize any image to exact pixel dimensions, with an aspect ratio lock so nothing gets stretched, plus one-click scale presets. All in your browser, nothing uploaded."
+      intro="Resize any image to exact pixel dimensions, with an aspect ratio lock so nothing gets stretched, plus one-click scale and social media presets. All in your browser, nothing uploaded."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -193,6 +213,16 @@ export default function ImageResizer() {
             <div className="btn-row" style={{ marginTop: 0 }}>
               {PRESETS.map((p) => (
                 <button key={p} type="button" className="btn ghost" onClick={() => applyPreset(p)}>{p}%</button>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <label>Social media presets</label>
+            <div className="btn-row" style={{ marginTop: 0 }}>
+              {SOCIAL_PRESETS.map((p) => (
+                <button key={p.label} type="button" className="btn ghost" onClick={() => applySocialPreset(p.w, p.h)}>
+                  {p.label} {p.w}×{p.h}
+                </button>
               ))}
             </div>
           </div>

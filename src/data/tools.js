@@ -132,15 +132,15 @@ export const TOOLS = [
     path: '/image-converter',
     name: 'Image Converter',
     category: 'Image Tools',
-    blurb: 'Convert images between JPG, PNG and WebP formats right in your browser, with a quality slider for JPG and WebP output.',
-    keywords: 'jpg to png, png to jpg, webp converter, convert image',
+    blurb: 'Convert images between JPG, PNG and WebP formats right in your browser, with a quality slider for JPG and WebP output, optional resize in the same step, and batch conversion with ZIP download.',
+    keywords: 'jpg to png, png to jpg, webp converter, convert image, resize while converting',
   },
   {
     slug: 'png-to-jpg',
     path: '/png-to-jpg',
     name: 'PNG to JPG',
     category: 'Image Tools',
-    blurb: 'Convert PNG images to JPG with adjustable quality for smaller files that work everywhere. Free, instant, no upload.',
+    blurb: 'Convert PNG images to JPG with adjustable quality, optional resize in the same step and batch conversion with ZIP download, for smaller files that work everywhere. Free, instant, no upload.',
     keywords: 'png to jpg, convert png to jpg, png to jpeg',
   },
   {
@@ -148,7 +148,7 @@ export const TOOLS = [
     path: '/jpg-to-png',
     name: 'JPG to PNG',
     category: 'Image Tools',
-    blurb: 'Convert JPG images to lossless PNG for editing, graphics and crisp screenshots. No upload.',
+    blurb: 'Convert JPG images to lossless PNG for editing, graphics and crisp screenshots, with optional resize in the same step and batch conversion with ZIP download. No upload.',
     keywords: 'jpg to png, convert jpg to png, jpeg to png',
   },
   {
@@ -156,7 +156,7 @@ export const TOOLS = [
     path: '/webp-to-png',
     name: 'WebP to PNG',
     category: 'Image Tools',
-    blurb: 'Convert WebP images to PNG so any app, editor or printer can open them. Free and instant.',
+    blurb: 'Convert WebP images to PNG so any app, editor or printer can open them, with optional resize in the same step and batch conversion with ZIP download. Free and instant.',
     keywords: 'webp to png, convert webp to png',
   },
   {
@@ -164,7 +164,7 @@ export const TOOLS = [
     path: '/webp-to-jpg',
     name: 'WebP to JPG',
     category: 'Image Tools',
-    blurb: 'Convert WebP images to JPG with adjustable quality for maximum compatibility with forms, apps and email. No upload.',
+    blurb: 'Convert WebP images to JPG with adjustable quality, optional resize in the same step and batch conversion with ZIP download, for maximum compatibility with forms, apps and email. No upload.',
     keywords: 'webp to jpg, convert webp to jpg, webp to jpeg',
   },
   {
@@ -172,7 +172,7 @@ export const TOOLS = [
     path: '/png-to-webp',
     name: 'PNG to WebP',
     category: 'Image Tools',
-    blurb: 'Convert PNG images to WebP with adjustable quality and cut file size by a third or more, transparency included.',
+    blurb: 'Convert PNG images to WebP with adjustable quality, optional resize in the same step and batch conversion with ZIP download, and cut file size by a third or more, transparency included.',
     keywords: 'png to webp, convert png to webp',
   },
   {
@@ -180,7 +180,7 @@ export const TOOLS = [
     path: '/jpg-to-webp',
     name: 'JPG to WebP',
     category: 'Image Tools',
-    blurb: 'Convert JPG photos to WebP with adjustable quality for a faster website and smaller files.',
+    blurb: 'Convert JPG photos to WebP with adjustable quality, optional resize in the same step and batch conversion with ZIP download, for a faster website and smaller files.',
     keywords: 'jpg to webp, convert jpg to webp, jpeg to webp',
   },
   {
@@ -188,8 +188,8 @@ export const TOOLS = [
     path: '/image-resizer',
     name: 'Image Resizer',
     category: 'Image Tools',
-    blurb: 'Resize any image to exact pixel dimensions, with aspect ratio lock and scale presets.',
-    keywords: 'resize image, image dimensions, shrink picture',
+    blurb: 'Resize any image to exact pixel dimensions, with aspect ratio lock, scale presets and one-click social media presets.',
+    keywords: 'resize image, image dimensions, shrink picture, instagram size, social media image size',
   },
   {
     slug: 'merge-pdf',
@@ -262,7 +262,7 @@ export const TOOLS = [
     path: '/avif-to-jpg',
     name: 'AVIF to JPG Converter',
     category: 'Image Tools',
-    blurb: 'Convert AVIF images to JPG with adjustable quality for maximum compatibility with forms, apps and printers. No upload.',
+    blurb: 'Convert AVIF images to JPG with adjustable quality, optional resize in the same step and batch conversion with ZIP download, for maximum compatibility with forms, apps and printers. No upload.',
     keywords: 'avif to jpg, convert avif to jpg, avif converter',
   },
   {
@@ -321,6 +321,38 @@ export const TOOLS = [
     category: 'Business Tools',
     blurb: 'Create professional PDF invoices free: items, tax, discount, logo and live totals. No sign-up.',
     keywords: 'invoice generator, free invoice generator, invoice maker, create invoice pdf',
+  },
+  {
+    slug: 'regex-tester',
+    path: '/regex-tester',
+    name: 'Regex Tester',
+    category: 'Developer Tools',
+    blurb: 'Test regular expressions live against your own text, with matches highlighted, groups listed and clear errors.',
+    keywords: 'regex tester, test regex online, regular expression tester',
+  },
+  {
+    slug: 'hash-generator',
+    path: '/hash-generator',
+    name: 'Hash Generator',
+    category: 'Developer Tools',
+    blurb: 'Generate SHA-1, SHA-256, SHA-384 and SHA-512 hashes from text or files, entirely in your browser.',
+    keywords: 'hash generator, sha256 generator, sha256 online, file hash',
+  },
+  {
+    slug: 'uuid-generator',
+    path: '/uuid-generator',
+    name: 'UUID Generator',
+    category: 'Developer Tools',
+    blurb: 'Generate one or bulk random UUIDs (v4) instantly, validate any UUID, and copy or download the list.',
+    keywords: 'uuid generator, generate uuid, random uuid, uuid validator',
+  },
+  {
+    slug: 'color-picker',
+    path: '/color-picker',
+    name: 'Color Picker',
+    category: 'Developer Tools',
+    blurb: 'Pick any color and get its HEX, RGB and HSL values instantly, with shades, tints and readable text suggestions.',
+    keywords: 'color picker, hex color picker, rgb to hex, hsl converter',
   },
 ];
 

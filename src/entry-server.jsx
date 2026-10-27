@@ -54,6 +54,10 @@ import CompressImageTo50kb from './pages/tools/CompressImageTo50kb.jsx';
 import CompressImageTo100kb from './pages/tools/CompressImageTo100kb.jsx';
 import CompressImageTo200kb from './pages/tools/CompressImageTo200kb.jsx';
 import InvoiceGenerator from './pages/tools/InvoiceGenerator.jsx';
+import RegexTester from './pages/tools/RegexTester.jsx';
+import HashGenerator from './pages/tools/HashGenerator.jsx';
+import UuidGenerator from './pages/tools/UuidGenerator.jsx';
+import ColorPicker from './pages/tools/ColorPicker.jsx';
 import { __startHeadCollection, __takeHeadCollection } from './lib/seo.jsx';
 
 function SsrApp() {
@@ -100,6 +104,10 @@ function SsrApp() {
         <Route path="/compress-image-to-100kb" element={<CompressImageTo100kb />} />
         <Route path="/compress-image-to-200kb" element={<CompressImageTo200kb />} />
         <Route path="/invoice-generator" element={<InvoiceGenerator />} />
+        <Route path="/regex-tester" element={<RegexTester />} />
+        <Route path="/hash-generator" element={<HashGenerator />} />
+        <Route path="/uuid-generator" element={<UuidGenerator />} />
+        <Route path="/color-picker" element={<ColorPicker />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />

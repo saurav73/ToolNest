@@ -48,6 +48,10 @@ const CompressImageTo50kb = lazy(() => import('./pages/tools/CompressImageTo50kb
 const CompressImageTo100kb = lazy(() => import('./pages/tools/CompressImageTo100kb.jsx'));
 const CompressImageTo200kb = lazy(() => import('./pages/tools/CompressImageTo200kb.jsx'));
 const InvoiceGenerator = lazy(() => import('./pages/tools/InvoiceGenerator.jsx'));
+const RegexTester = lazy(() => import('./pages/tools/RegexTester.jsx'));
+const HashGenerator = lazy(() => import('./pages/tools/HashGenerator.jsx'));
+const UuidGenerator = lazy(() => import('./pages/tools/UuidGenerator.jsx'));
+const ColorPicker = lazy(() => import('./pages/tools/ColorPicker.jsx'));
 
 function ScrollTop() {
   const { pathname } = useLocation();
@@ -101,6 +105,10 @@ export default function App() {
           <Route path="/compress-image-to-100kb" element={<CompressImageTo100kb />} />
           <Route path="/compress-image-to-200kb" element={<CompressImageTo200kb />} />
           <Route path="/invoice-generator" element={<InvoiceGenerator />} />
+          <Route path="/regex-tester" element={<RegexTester />} />
+          <Route path="/hash-generator" element={<HashGenerator />} />
+          <Route path="/uuid-generator" element={<UuidGenerator />} />
+          <Route path="/color-picker" element={<ColorPicker />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />

@@ -24,6 +24,14 @@ const FAQS = [
     a: 'WebP usually produces files 25 to 35 percent smaller than JPG at similar quality, with transparency support like PNG. All modern browsers display WebP, which makes it a great default for websites. Some older desktop apps still cannot open it, so keep a JPG copy for sharing.',
   },
   {
+    q: 'Can I resize the image while converting it?',
+    a: 'Yes. Set a max width in pixels and the converter scales the image down to that width, keeping the aspect ratio, in the same step. Leave the field blank to keep the original size. Images already smaller than your width are never enlarged.',
+  },
+  {
+    q: 'Can I convert several images at once?',
+    a: 'Yes. Drop several JPG, PNG or WebP images and they all convert with the same target format, quality and resize settings. Each converted image downloads on its own, or all of them together as one ZIP file.',
+  },
+  {
     q: 'Is my image uploaded for conversion?',
     a: 'No. The conversion draws your image onto a browser canvas and re-encodes it locally. The file never leaves your device.',
   },
@@ -36,9 +44,13 @@ const CONTENT = (
       Different jobs need different formats: a form that only accepts JPG, a design
       tool that wants PNG, a website that loads fastest with WebP. This converter
       switches between the three formats instantly in your browser, shows the size
-      change, and downloads the converted file. Converting to JPG or WebP uses
+      change, and downloads the converted file. Drop several images at once and
+      they convert with the same settings, with one ZIP download for the whole
+      batch. Converting to JPG or WebP uses
       the quality you set with the slider (92 percent by default), high enough
-      that photos show no visible difference.
+      that photos show no visible difference. You can also resize in the same
+      step: set a max width and the image is scaled down, aspect ratio kept,
+      instead of converting first and resizing afterwards.
     </p>
     <h2>A quick format guide</h2>
     <ul>
@@ -103,31 +115,95 @@ const CONTENT = (
 export default function ImageConverter() {
   const [file, setFile] = useState(null);
   const [img, setImg] = useState(null);
+  const [batch, setBatch] = useState([]); // [{ file, img, url }]
+  const [outputs, setOutputs] = useState([]); // [{ name, blob, url, sourceName, error }]
   const [target, setTarget] = useState(TARGETS[0]);
   const [quality, setQuality] = useState(92);
+  const [resizeWidth, setResizeWidth] = useState('');
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const urlRef = useRef('');
+  const batchUrlsRef = useRef([]);
 
   useEffect(() => () => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     if (result && result.url) URL.revokeObjectURL(result.url);
+    batchUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
   }, [result]);
 
+  const clearBatch = () => {
+    batchUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+    batchUrlsRef.current = [];
+    setBatch([]);
+    setOutputs([]);
+    setProgress('');
+  };
+
+  const convertOne = async (el, maxW) => {
+    let outW = el.naturalWidth;
+    let outH = el.naturalHeight;
+    if (Number.isFinite(maxW) && maxW > 0 && maxW < el.naturalWidth) {
+      const scale = maxW / el.naturalWidth;
+      outW = maxW;
+      outH = Math.max(1, Math.round(el.naturalHeight * scale));
+    }
+    const canvas = imageToCanvas(el, outW, outH);
+    if (target.id === 'image/jpeg') {
+      const ctx = canvas.getContext('2d');
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    const blob = await canvasToBlob(canvas, target.id, target.id === 'image/png' ? undefined : quality / 100);
+    return { blob, width: outW, height: outH };
+  };
+
   const onFiles = async (files) => {
-    const f = files[0];
+    const list = [...(files || [])];
     setError('');
     setResult(null);
-    try {
-      const { img: el, url } = await loadImageFromFile(f);
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-      urlRef.current = url;
-      setFile(f);
-      setImg(el);
-    } catch (e) {
-      setError(e.message);
+    clearBatch();
+    if (list.length <= 1) {
+      const f = list[0];
+      if (!f) { setFile(null); setImg(null); return; }
+      try {
+        const { img: el, url } = await loadImageFromFile(f);
+        if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+        urlRef.current = url;
+        setFile(f);
+        setImg(el);
+      } catch (e) {
+        setError(e.message);
+      }
+      return;
     }
+    setFile(null);
+    setImg(null);
+    const accepted = list.filter((f) => ['image/jpeg', 'image/png', 'image/webp'].includes(f.type)
+      || /\.(jpe?g|png|webp)$/i.test(f.name));
+    if (!accepted.length) {
+      setError('None of those files are JPG, PNG or WebP images. This converter handles those three formats in any direction.');
+      return;
+    }
+    const loaded = [];
+    let skipped = 0;
+    for (const f of accepted) {
+      try {
+        const { img: el, url } = await loadImageFromFile(f);
+        batchUrlsRef.current.push(url);
+        loaded.push({ file: f, img: el, url });
+      } catch (e) {
+        skipped += 1;
+      }
+    }
+    if (!loaded.length) {
+      setError('None of those files could be read as images.');
+      return;
+    }
+    if (skipped) setError(`${skipped} file${skipped > 1 ? 's' : ''} could not be read as images and were skipped.`);
+    setBatch(loaded);
   };
 
   const convert = async () => {
@@ -136,22 +212,71 @@ export default function ImageConverter() {
     setBusy(true);
     setError('');
     try {
-      const canvas = imageToCanvas(img, img.naturalWidth, img.naturalHeight);
-      if (target.id === 'image/jpeg') {
-        const ctx = canvas.getContext('2d');
-        ctx.globalCompositeOperation = 'destination-over';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-      const blob = await canvasToBlob(canvas, target.id, target.id === 'image/png' ? undefined : quality / 100);
+      const maxW = parseInt(resizeWidth, 10);
+      const { blob, width, height } = await convertOne(img, maxW);
       await holdAtLeast(started);
       if (result && result.url) URL.revokeObjectURL(result.url);
-      setResult({ blob, url: URL.createObjectURL(blob), label: target.label, ext: target.ext });
+      setResult({ blob, url: URL.createObjectURL(blob), label: target.label, ext: target.ext, width, height });
     } catch (e) {
       setError(e.message);
     }
     setBusy(false);
   };
+
+  const convertAll = async () => {
+    if (!batch.length) return;
+    const started = Date.now();
+    setBusy(true);
+    setError('');
+    setOutputs([]);
+    const done = [];
+    const usedNames = new Set();
+    const uniqueName = (name) => {
+      if (!usedNames.has(name)) { usedNames.add(name); return name; }
+      const base = name.replace(/\.[^.]+$/, '');
+      const ext = name.split('.').pop();
+      let i = 2;
+      let candidate = `${base}-${i}.${ext}`;
+      while (usedNames.has(candidate)) { i += 1; candidate = `${base}-${i}.${ext}`; }
+      usedNames.add(candidate);
+      return candidate;
+    };
+    try {
+      const maxW = parseInt(resizeWidth, 10);
+      for (let i = 0; i < batch.length; i += 1) {
+        const entry = batch[i];
+        setProgress(`Converting image ${i + 1} of ${batch.length}: ${entry.file.name}`);
+        try {
+          const { blob, width, height } = await convertOne(entry.img, maxW);
+          const url = URL.createObjectURL(blob);
+          batchUrlsRef.current.push(url);
+          done.push({ name: uniqueName(swapExt(entry.file.name, target.ext)), blob, url, sourceName: entry.file.name, width, height });
+        } catch (e) {
+          done.push({ name: entry.file.name, error: e.message || 'Could not be converted.' });
+        }
+        setOutputs([...done]);
+      }
+      await holdAtLeast(started);
+      const failed = done.filter((d) => d.error).length;
+      if (failed === done.length) setError('None of the images could be converted in this browser.');
+    } catch (e) {
+      setError(e.message);
+    }
+    setProgress('');
+    setBusy(false);
+  };
+
+  const downloadZip = async () => {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    outputs.filter((o) => o.blob).forEach((o) => zip.file(o.name, o.blob));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, 'converted-images.zip');
+  };
+
+  const good = outputs.filter((o) => o.blob);
+  const batchIn = batch.reduce((s, b) => s + b.file.size, 0);
+  const batchOut = good.reduce((s, o) => s + o.blob.size, 0);
 
   return (
     <ToolLayout
@@ -164,7 +289,7 @@ export default function ImageConverter() {
       faqs={FAQS}
       content={CONTENT}
     >
-      <FileDrop accept="image/jpeg,image/png,image/webp" onFiles={onFiles} label="Drop an image here, or click to choose one" />
+      <FileDrop accept="image/jpeg,image/png,image/webp" multiple onFiles={onFiles} label="Drop images here, or click to choose them (batch supported)" />
       {error && <div className="message err">{error}</div>}
 
       {file && img && (
@@ -195,6 +320,20 @@ export default function ImageConverter() {
               <p className="hint">Higher quality means a bigger file. 92 percent is a good balance for photos; 75 to 85 percent looks nearly identical at a much smaller size.</p>
             </div>
           )}
+          <div className="field">
+            <label htmlFor="conv-resize">Resize while converting (optional, max width in px)</label>
+            <input
+              id="conv-resize"
+              type="number"
+              min="16"
+              max="20000"
+              inputMode="numeric"
+              placeholder="e.g. 1200"
+              value={resizeWidth}
+              onChange={(e) => { setResizeWidth(e.target.value); setResult(null); }}
+            />
+            <p className="hint">Leave blank to keep the original size. The aspect ratio is kept, and images already smaller than this width are never enlarged.</p>
+          </div>
           <div className="btn-row">
             <button type="button" className="btn" onClick={convert} disabled={busy}>{busy ? <BusyLabel label="Converting your image..." /> : `Convert to ${target.label}`}</button>
           </div>
@@ -209,7 +348,90 @@ export default function ImageConverter() {
           {result && (
             <div className="qr-preview">
               <img src={result.url} alt="Converted preview" style={{ maxWidth: 'min(420px, 100%)' }} />
+              {(result.width !== img.naturalWidth || result.height !== img.naturalHeight) && (
+                <p className="hint">Resized to {result.width} × {result.height} px.</p>
+              )}
             </div>
+          )}
+        </>
+      )}
+
+      {batch.length > 0 && (
+        <>
+          <div className="stat-grid" style={{ marginTop: 16 }}>
+            <div className="stat"><div className="num">{batch.length}</div><div className="lbl">Images selected</div></div>
+            <div className="stat"><div className="num">{formatBytes(batchIn)}</div><div className="lbl">Original total</div></div>
+            <div className="stat"><div className="num">{good.length ? formatBytes(batchOut) : '...'}</div><div className="lbl">Converted total</div></div>
+          </div>
+          <div className="field" style={{ marginTop: 16 }}>
+            <label htmlFor="conv-batch-target">Convert to</label>
+            <select id="conv-batch-target" value={target.id} onChange={(e) => { setTarget(TARGETS.find((t) => t.id === e.target.value)); setOutputs([]); }}>
+              {TARGETS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          {target.id !== 'image/png' && (
+            <div className="field">
+              <label htmlFor="conv-batch-quality">Quality: {quality}%</label>
+              <input
+                id="conv-batch-quality"
+                type="range"
+                min="10"
+                max="100"
+                step="1"
+                value={quality}
+                onChange={(e) => { setQuality(Number(e.target.value)); setOutputs([]); }}
+              />
+              <p className="hint">Higher quality means a bigger file. 92 percent is a good balance for photos; 75 to 85 percent looks nearly identical at a much smaller size.</p>
+            </div>
+          )}
+          <div className="field">
+            <label htmlFor="conv-batch-resize">Resize while converting (optional, max width in px)</label>
+            <input
+              id="conv-batch-resize"
+              type="number"
+              min="16"
+              max="20000"
+              inputMode="numeric"
+              placeholder="e.g. 1200"
+              value={resizeWidth}
+              onChange={(e) => { setResizeWidth(e.target.value); setOutputs([]); }}
+            />
+            <p className="hint">Leave blank to keep the original size. The aspect ratio is kept, and images already smaller than this width are never enlarged.</p>
+          </div>
+          <div className="btn-row">
+            <button type="button" className="btn" onClick={convertAll} disabled={busy}>
+              {busy ? <BusyLabel label="Converting on your device..." /> : `Convert ${batch.length} images to ${target.label}`}
+            </button>
+            {good.length > 1 && !busy && (
+              <button type="button" className="btn secondary" onClick={downloadZip}>Download all as ZIP</button>
+            )}
+          </div>
+          {busy && <ProcessingNote label={progress || 'Converting your images...'} />}
+          {outputs.length > 0 && (
+            <div className="file-results">
+              {outputs.map((o, i) => (
+                <div className="file-row" key={`${o.name}-${i}`}>
+                  {o.blob ? (
+                    <>
+                      <img src={o.url} alt="" className="file-thumb" />
+                      <span className="file-name">{o.name}</span>
+                      <span className="file-size">{formatBytes(o.blob.size)}</span>
+                      <button type="button" className="btn secondary" onClick={() => downloadBlob(o.blob, o.name)}>Download</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="file-name">{o.name}</span>
+                      <span className="file-error">{o.error}</span>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {good.length > 0 && !busy && (
+            <p className="hint" style={{ marginTop: 12 }}>
+              Done: {good.length} image{good.length > 1 ? 's' : ''} converted to {target.label} on your device. Nothing was uploaded.
+            </p>
           )}
         </>
       )}

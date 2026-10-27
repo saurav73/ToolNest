@@ -51,6 +51,10 @@ ToolNest (https://toolnest-sage.vercel.app) is a free collection of small online
 - /base64-encoder-decoder - Base64 Encoder / Decoder: encodes text to Base64 or decodes it back, with full Unicode support.
 - /slug-generator - Slug Generator: turns titles and phrases into clean URL-friendly slugs.
 - /lorem-ipsum-generator - Lorem Ipsum Generator: generates placeholder text by paragraph, sentence or word.
+- /regex-tester - Regex Tester: tests regular expressions live against sample text, with matches highlighted, capture groups listed and clear error messages.
+- /hash-generator - Hash Generator: computes SHA-1, SHA-256, SHA-384 and SHA-512 hashes for text or files entirely in the browser; nothing is uploaded.
+- /uuid-generator - UUID Generator: generates one or bulk random UUIDs (v4) and validates any UUID, with copy-all and text download.
+- /color-picker - Color Picker: picks a color and shows its HEX, RGB and HSL values with shades, tints and a readable text color suggestion.
 
 ## Business tools
 - /invoice-generator - Invoice Generator: creates professional PDF invoices in the browser with business and client details, optional logo, itemised lines, tax and discount percentages, currency selection and live totals; download as PDF or print. Data never leaves the device.
