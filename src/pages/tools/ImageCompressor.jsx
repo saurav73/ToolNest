@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import ToolLayout from '../../components/ToolLayout.jsx';
 import FileDrop from '../../components/FileDrop.jsx';
 import { ProcessingNote, SuccessDownload, BusyLabel } from '../../components/ProcessUI.jsx';
-import { formatBytes, downloadBlob, holdAtLeast, loadImageFromFile, imageToCanvas, canvasToBlob } from '../../lib/files.js';
+import { formatBytes, downloadBlob, holdAtLeast, loadImageFromFile, imageToCanvas, canvasToBlob, swapExt } from '../../lib/files.js';
 
 const FORMATS = [
   { id: 'image/jpeg', label: 'JPEG (smallest for photos)', ext: 'jpg' },
@@ -64,6 +64,10 @@ const FAQS = [
     a: 'Your image is decoded in the browser and re-encoded at the quality you choose. Lower quality means a smaller file with slightly softer detail. Because everything happens on your device, your photo is never uploaded to a server, which also makes it much faster than upload-based compressors.',
   },
   {
+    q: 'Can I compress several images at once?',
+    a: 'Yes. Drop several JPG, PNG or WebP images and they all compress with the same quality or target size settings. Each compressed image downloads on its own, or all of them together as one ZIP file.',
+  },
+  {
     q: 'How do I compress an image to 200KB, or another exact size?',
     a: 'Switch the tool to Target size mode, pick a preset such as 200KB (or type your own size), and compress. The tool searches quality settings automatically to land your file at or just under the target, and only reduces the pixel dimensions if quality alone cannot get there. The result panel always shows the achieved size next to your target.',
   },
@@ -88,7 +92,9 @@ const CONTENT = (
       Large photos straight from a camera or phone can be 5 to 15 megabytes, far too
       big for email, forms and fast web pages. This compressor re-encodes your JPG,
       PNG or WebP image at the quality you pick, shows the size before and after, and
-      lets you download the smaller file. Nothing is uploaded: the work happens in
+      lets you download the smaller file. Drop several images at once and they
+      compress with the same settings, with one ZIP download for the whole batch.
+      Nothing is uploaded: the work happens in
       your browser, so even private photos stay private.
     </p>
     <h2>Compress to an exact size: 20KB, 50KB, 100KB, 200KB or 1MB</h2>
@@ -164,13 +170,19 @@ export default function ImageCompressor({
   title = 'Free Image Compressor: Compress JPG, PNG, WebP | ToolNest',
   description = 'Compress JPG and PNG images to an exact size: 20KB, 50KB, 100KB, 200KB or 1MB. Free in your browser, no upload, no sign-up.',
   h1 = 'Image Compressor',
-  intro = 'Shrink JPG, PNG and WebP images two ways: with a simple quality slider, or by setting an exact target size like 200KB and letting the tool find the settings for you. Your image is processed on your device and never uploaded, and you see the exact result before downloading.',
+  intro = 'Shrink JPG, PNG and WebP images two ways: with a simple quality slider, or by setting an exact target size like 200KB and letting the tool find the settings for you. Drop several images at once and they compress with the same settings, with one ZIP download for the batch. Your image is processed on your device and never uploaded, and you see the exact result before downloading.',
   faqs = FAQS,
   content = CONTENT,
   initialTargetKb = null,
 } = {}) {
+  // Batch mode only on the main compressor page. The 50KB, 100KB and 200KB
+  // preset pages keep their single-file exact-target flow.
+  const allowBatch = initialTargetKb == null;
   const [file, setFile] = useState(null);
   const [img, setImg] = useState(null);
+  const [batch, setBatch] = useState([]); // [{ file, img, url }]
+  const [outputs, setOutputs] = useState([]); // [{ name, blob, url, sourceName, error, origSize }]
+  const [progress, setProgress] = useState('');
   const [quality, setQuality] = useState(80);
   const [format, setFormat] = useState(FORMATS[0]);
   const [mode, setMode] = useState(initialTargetKb ? 'target' : 'quality');
@@ -180,16 +192,56 @@ export default function ImageCompressor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const urlRef = useRef('');
+  const batchUrlsRef = useRef([]);
 
   useEffect(() => () => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     if (result && result.url) URL.revokeObjectURL(result.url);
   }, [result]);
 
+  const clearBatch = () => {
+    batchUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+    batchUrlsRef.current = [];
+    setBatch([]);
+    setOutputs([]);
+    setProgress('');
+  };
+
   const onFiles = async (files) => {
-    const f = files[0];
+    const list = [...(files || [])];
     setError('');
     setResult(null);
+    if (allowBatch) clearBatch();
+    if (list.length > 1 && allowBatch) {
+      setFile(null);
+      setImg(null);
+      const accepted = list.filter((f) => ['image/jpeg', 'image/png', 'image/webp'].includes(f.type)
+        || /\.(jpe?g|png|webp)$/i.test(f.name));
+      if (!accepted.length) {
+        setError('None of those files are JPG, PNG or WebP images. This compressor handles those three formats.');
+        return;
+      }
+      const loaded = [];
+      let skipped = 0;
+      for (const f of accepted) {
+        try {
+          const { img: el, url } = await loadImageFromFile(f);
+          batchUrlsRef.current.push(url);
+          loaded.push({ file: f, img: el, url });
+        } catch (e) {
+          skipped += 1;
+        }
+      }
+      if (!loaded.length) {
+        setError('None of those files could be read as images.');
+        return;
+      }
+      if (skipped) setError(`${skipped} file${skipped > 1 ? 's' : ''} could not be read as images and were skipped.`);
+      setBatch(loaded);
+      return;
+    }
+    const f = list[0];
+    if (!f) { setFile(null); setImg(null); return; }
     try {
       const { img: el, url } = await loadImageFromFile(f);
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -228,6 +280,69 @@ export default function ImageCompressor({
     setBusy(false);
   };
 
+  const compressOne = async (el) => {
+    if (mode === 'target') {
+      if (!effectiveTargetKb || effectiveTargetKb <= 0) throw new Error('Enter a target size in KB first.');
+      const out = await fitToTarget(el, format.id, targetBytes);
+      return { ...out, targetBytes };
+    }
+    const blob = await encodeAt(el, el.naturalWidth, el.naturalHeight, format.id, quality / 100);
+    return { blob, width: el.naturalWidth, height: el.naturalHeight, targetBytes: null, missed: false };
+  };
+
+  const compressAll = async () => {
+    if (!batch.length) return;
+    const started = Date.now();
+    setBusy(true);
+    setError('');
+    setOutputs([]);
+    const done = [];
+    const usedNames = new Set();
+    const uniqueName = (name) => {
+      if (!usedNames.has(name)) { usedNames.add(name); return name; }
+      const base = name.replace(/\.[^.]+$/, '');
+      const ext = name.split('.').pop();
+      let i = 2;
+      let candidate = `${base}-${i}.${ext}`;
+      while (usedNames.has(candidate)) { i += 1; candidate = `${base}-${i}.${ext}`; }
+      usedNames.add(candidate);
+      return candidate;
+    };
+    try {
+      for (let i = 0; i < batch.length; i += 1) {
+        const entry = batch[i];
+        setProgress(`Compressing image ${i + 1} of ${batch.length}: ${entry.file.name}`);
+        try {
+          const out = await compressOne(entry.img);
+          const url = URL.createObjectURL(out.blob);
+          batchUrlsRef.current.push(url);
+          done.push({ name: uniqueName(`compressed-${swapExt(entry.file.name, format.ext)}`), blob: out.blob, url, sourceName: entry.file.name, origSize: entry.file.size, missed: out.missed });
+        } catch (e) {
+          done.push({ name: entry.file.name, error: e.message || 'Could not be compressed.' });
+        }
+        setOutputs([...done]);
+      }
+      await holdAtLeast(started);
+      if (done.filter((d) => d.error).length === done.length) setError('None of the images could be compressed in this browser.');
+    } catch (e) {
+      setError(e.message);
+    }
+    setProgress('');
+    setBusy(false);
+  };
+
+  const downloadZip = async () => {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    outputs.filter((o) => o.blob).forEach((o) => zip.file(o.name, o.blob));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, 'compressed-images.zip');
+  };
+
+  const good = outputs.filter((o) => o.blob);
+  const batchIn = batch.reduce((s, b) => s + b.file.size, 0);
+  const batchOut = good.reduce((s, o) => s + o.blob.size, 0);
+
   const saved = result && file ? Math.max(0, Math.round((1 - result.blob.size / file.size) * 100)) : 0;
   const targetLabel = presetLabel(effectiveTargetKb || 0);
   const successMessage = result
@@ -249,7 +364,7 @@ export default function ImageCompressor({
       faqs={faqs}
       content={content}
     >
-      <FileDrop accept="image/jpeg,image/png,image/webp" onFiles={onFiles} label="Drop a JPG, PNG or WebP image here, or click to choose one" />
+      <FileDrop accept="image/jpeg,image/png,image/webp" multiple={allowBatch} onFiles={onFiles} label={allowBatch ? 'Drop JPG, PNG or WebP images here, or click to choose them (batch supported)' : 'Drop a JPG, PNG or WebP image here, or click to choose one'} />
       {error && <div className="message err">{error}</div>}
 
       {file && img && (
@@ -351,6 +466,119 @@ export default function ImageCompressor({
                 <p className="hint">Dimensions adjusted to {result.width} × {result.height} px to reach the target size.</p>
               )}
             </div>
+          )}
+        </>
+      )}
+
+      {batch.length > 0 && (
+        <>
+          <div className="stat-grid" style={{ marginTop: 16 }}>
+            <div className="stat"><div className="num">{batch.length}</div><div className="lbl">Images selected</div></div>
+            <div className="stat"><div className="num">{formatBytes(batchIn)}</div><div className="lbl">Original total</div></div>
+            <div className="stat"><div className="num">{good.length ? formatBytes(batchOut) : '...'}</div><div className="lbl">Compressed total</div></div>
+            <div className="stat"><div className="num">{good.length ? `${Math.max(0, Math.round((1 - batchOut / batchIn) * 100))}%` : '...'}</div><div className="lbl">Size saved</div></div>
+          </div>
+
+          <div className="field" style={{ marginTop: 16 }}>
+            <label>How to compress</label>
+            <div className="checks">
+              <label>
+                <input type="radio" name="cmp-batch-mode" checked={mode === 'quality'} onChange={() => { setMode('quality'); setOutputs([]); }} />
+                Quality slider
+              </label>
+              <label>
+                <input type="radio" name="cmp-batch-mode" checked={mode === 'target'} onChange={() => { setMode('target'); setOutputs([]); }} />
+                Target size (KB)
+              </label>
+            </div>
+          </div>
+
+          {mode === 'quality' ? (
+            <div className="row">
+              <div className="field">
+                <label htmlFor="cmp-batch-quality">Quality: {quality}%</label>
+                <input id="cmp-batch-quality" type="range" min="10" max="100" step="1" value={quality} onChange={(e) => { setQuality(Number(e.target.value)); setOutputs([]); }} />
+                <p className="hint">Lower quality means a smaller file. 75 to 85% suits most photos.</p>
+              </div>
+              <div className="field">
+                <label htmlFor="cmp-batch-format">Output format</label>
+                <select id="cmp-batch-format" value={format.id} onChange={(e) => { setFormat(FORMATS.find((f) => f.id === e.target.value)); setOutputs([]); }}>
+                  {FORMATS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="row">
+              <div className="field">
+                <label>Target size</label>
+                <div className="btn-row" style={{ marginTop: 0 }}>
+                  {TARGET_PRESETS_KB.map((kb) => (
+                    <button
+                      key={kb}
+                      type="button"
+                      className={`btn${customKb === '' && targetKb === kb ? '' : ' secondary'}`}
+                      onClick={() => { setTargetKb(kb); setCustomKb(''); setOutputs([]); }}
+                    >
+                      {presetLabel(kb)}
+                    </button>
+                  ))}
+                </div>
+                <p className="hint">The tool adjusts quality first, then dimensions only if needed, to land at or under the target.</p>
+              </div>
+              <div className="field">
+                <label htmlFor="cmp-batch-custom-kb">Or a custom size (KB)</label>
+                <input
+                  id="cmp-batch-custom-kb"
+                  type="number"
+                  min="1"
+                  max="10240"
+                  inputMode="numeric"
+                  placeholder="e.g. 150"
+                  value={customKb}
+                  onChange={(e) => { setCustomKb(e.target.value); setOutputs([]); }}
+                />
+                <label htmlFor="cmp-batch-format-t" style={{ marginTop: 12 }}>Output format</label>
+                <select id="cmp-batch-format-t" value={format.id} onChange={(e) => { setFormat(FORMATS.find((f) => f.id === e.target.value)); setOutputs([]); }}>
+                  {FORMATS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className="btn-row">
+            <button type="button" className="btn" onClick={compressAll} disabled={busy}>
+              {busy ? <BusyLabel label="Compressing your images..." /> : `Compress ${batch.length} images`}
+            </button>
+            {good.length > 1 && !busy && (
+              <button type="button" className="btn secondary" onClick={downloadZip}>Download all as ZIP</button>
+            )}
+          </div>
+          {busy && <ProcessingNote label={progress || 'Compressing your images...'} />}
+          {outputs.length > 0 && (
+            <div className="file-results">
+              {outputs.map((o, i) => (
+                <div className="file-row" key={`${o.name}-${i}`}>
+                  {o.blob ? (
+                    <>
+                      <img src={o.url} alt="" className="file-thumb" />
+                      <span className="file-name">{o.name}</span>
+                      <span className="file-size">{formatBytes(o.origSize)} to {formatBytes(o.blob.size)}{o.missed ? ' (target not reached)' : ''}</span>
+                      <button type="button" className="btn secondary" onClick={() => downloadBlob(o.blob, o.name)}>Download</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="file-name">{o.name}</span>
+                      <span className="file-error">{o.error}</span>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {good.length > 0 && !busy && (
+            <p className="hint" style={{ marginTop: 12 }}>
+              Done: {good.length} image{good.length > 1 ? 's' : ''} compressed on your device. Nothing was uploaded.
+            </p>
           )}
         </>
       )}

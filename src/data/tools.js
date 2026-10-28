@@ -124,7 +124,7 @@ export const TOOLS = [
     path: '/image-compressor',
     name: 'Image Compressor',
     category: 'Image Tools',
-    blurb: 'Shrink JPG, PNG and WebP images with a quality slider and see the size saving before you download.',
+    blurb: 'Shrink JPG, PNG and WebP images with a quality slider or an exact target size, and compress a whole batch with one ZIP download.',
     keywords: 'compress image, reduce image size, image optimizer',
   },
   {
