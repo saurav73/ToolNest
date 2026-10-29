@@ -188,7 +188,7 @@ export const TOOLS = [
     path: '/image-resizer',
     name: 'Image Resizer',
     category: 'Image Tools',
-    blurb: 'Resize any image to exact pixel dimensions, with aspect ratio lock, scale presets and one-click social media presets.',
+    blurb: 'Resize any image to exact pixel dimensions, with aspect ratio lock, scale presets, one-click social media presets and batch resize with ZIP download.',
     keywords: 'resize image, image dimensions, shrink picture, instagram size, social media image size',
   },
   {

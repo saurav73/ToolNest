@@ -34,6 +34,10 @@ const FAQS = [
     q: 'Does resizing change the file format?',
     a: 'No. The resized image keeps your original format (JPG stays JPG, PNG stays PNG, WebP stays WebP). To change format as well, use the Image Converter after resizing.',
   },
+  {
+    q: 'Can I resize several images at once?',
+    a: 'Yes. Drop several JPG, PNG or WebP images and they all resize with the same settings: with the aspect ratio lock on, every image is resized to the width you set while keeping its own proportions, and with the lock off, every image gets the exact width and height you set. Each resized image downloads on its own, or all of them together as one ZIP file.',
+  },
 ];
 
 const CONTENT = (
@@ -45,7 +49,8 @@ const CONTENT = (
       Lock the aspect ratio to keep proportions perfect, use the percentage presets
       for quick scaling, jump straight to a social media preset (Instagram, Facebook,
       YouTube and more) for exact platform dimensions, and download the result in
-      the original format.
+      the original format. Drop several images at once and they resize with the
+      same settings, with one ZIP download for the whole batch.
     </p>
     <h2>Resizing versus compressing</h2>
     <p>
@@ -106,17 +111,63 @@ export default function ImageResizer() {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [batch, setBatch] = useState([]); // [{ file, img, url }]
+  const [outputs, setOutputs] = useState([]); // [{ name, blob, url, sourceName, w, h, origSize, error }]
+  const [progress, setProgress] = useState('');
+  const [batchWidth, setBatchWidth] = useState(1200);
+  const [batchHeight, setBatchHeight] = useState(1200);
+  const [batchLock, setBatchLock] = useState(true);
   const urlRef = useRef('');
+  const batchUrlsRef = useRef([]);
 
   useEffect(() => () => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     if (result && result.url) URL.revokeObjectURL(result.url);
   }, [result]);
 
+  const clearBatch = () => {
+    batchUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+    batchUrlsRef.current = [];
+    setBatch([]);
+    setOutputs([]);
+    setProgress('');
+  };
+
   const onFiles = async (files) => {
-    const f = files[0];
+    const list = [...(files || [])];
     setError('');
     setResult(null);
+    clearBatch();
+    if (list.length > 1) {
+      setFile(null);
+      setImg(null);
+      const accepted = list.filter((f) => ['image/jpeg', 'image/png', 'image/webp'].includes(f.type)
+        || /\.(jpe?g|png|webp)$/i.test(f.name));
+      if (!accepted.length) {
+        setError('None of those files are JPG, PNG or WebP images. This resizer handles those three formats.');
+        return;
+      }
+      const loaded = [];
+      let skipped = 0;
+      for (const f of accepted) {
+        try {
+          const { img: el, url } = await loadImageFromFile(f);
+          batchUrlsRef.current.push(url);
+          loaded.push({ file: f, img: el, url });
+        } catch (e) {
+          skipped += 1;
+        }
+      }
+      if (!loaded.length) {
+        setError('None of those files could be read as images.');
+        return;
+      }
+      if (skipped) setError(`${skipped} file${skipped > 1 ? 's' : ''} could not be read as images and were skipped.`);
+      setBatch(loaded);
+      return;
+    }
+    const f = list[0];
+    if (!f) { setFile(null); setImg(null); return; }
     try {
       const { img: el, url } = await loadImageFromFile(f);
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -171,6 +222,63 @@ export default function ImageResizer() {
     setBusy(false);
   };
 
+  const resizeAll = async () => {
+    if (!batch.length || !batchWidth) return;
+    const started = Date.now();
+    setBusy(true);
+    setError('');
+    setOutputs([]);
+    const done = [];
+    const usedNames = new Set();
+    const uniqueName = (name) => {
+      if (!usedNames.has(name)) { usedNames.add(name); return name; }
+      const base = name.replace(/\.[^.]+$/, '');
+      const ext2 = name.split('.').pop();
+      let i = 2;
+      let candidate = `${base}-${i}.${ext2}`;
+      while (usedNames.has(candidate)) { i += 1; candidate = `${base}-${i}.${ext2}`; }
+      usedNames.add(candidate);
+      return candidate;
+    };
+    try {
+      for (let i = 0; i < batch.length; i += 1) {
+        const entry = batch[i];
+        setProgress(`Resizing image ${i + 1} of ${batch.length}: ${entry.file.name}`);
+        try {
+          const w = Math.max(1, Math.round(batchWidth));
+          const h = batchLock
+            ? Math.max(1, Math.round((w * entry.img.naturalHeight) / entry.img.naturalWidth))
+            : Math.max(1, Math.round(batchHeight));
+          const canvas = imageToCanvas(entry.img, w, h);
+          const type = ['image/jpeg', 'image/png', 'image/webp'].includes(entry.file.type) ? entry.file.type : 'image/png';
+          const blob = await canvasToBlob(canvas, type, 0.92);
+          const url = URL.createObjectURL(blob);
+          batchUrlsRef.current.push(url);
+          done.push({ name: uniqueName(`resized-${entry.file.name}`), blob, url, sourceName: entry.file.name, w, h, origSize: entry.file.size });
+        } catch (e) {
+          done.push({ name: entry.file.name, error: e.message || 'Could not be resized.' });
+        }
+        setOutputs([...done]);
+      }
+      await holdAtLeast(started);
+      if (done.filter((d) => d.error).length === done.length) setError('None of the images could be resized in this browser.');
+    } catch (e) {
+      setError(e.message);
+    }
+    setProgress('');
+    setBusy(false);
+  };
+
+  const downloadZip = async () => {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    outputs.filter((o) => o.blob).forEach((o) => zip.file(o.name, o.blob));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, 'resized-images.zip');
+  };
+
+  const good = outputs.filter((o) => o.blob);
+
   const ext = file ? (file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/webp' ? 'webp' : 'png') : 'png';
 
   return (
@@ -180,11 +288,11 @@ export default function ImageResizer() {
       title="Image Resizer: Resize Images by Pixels Online | ToolNest"
       description="Resize JPG, PNG and WebP images to exact pixels with aspect ratio lock and scale presets. In your browser, no upload, instant download."
       h1="Image Resizer"
-      intro="Resize any image to exact pixel dimensions, with an aspect ratio lock so nothing gets stretched, plus one-click scale and social media presets. All in your browser, nothing uploaded."
+      intro="Resize any image to exact pixel dimensions, with an aspect ratio lock so nothing gets stretched, plus one-click scale and social media presets. Drop several images at once and they resize with the same settings, with one ZIP download for the batch. All in your browser, nothing uploaded."
       faqs={FAQS}
       content={CONTENT}
     >
-      <FileDrop accept="image/jpeg,image/png,image/webp" onFiles={onFiles} label="Drop an image here, or click to choose one" />
+      <FileDrop accept="image/jpeg,image/png,image/webp" multiple onFiles={onFiles} label="Drop images here, or click to choose them (batch supported)" />
       {error && <div className="message err">{error}</div>}
 
       {file && img && (
@@ -241,6 +349,73 @@ export default function ImageResizer() {
             <div className="qr-preview">
               <img src={result.url} alt="Resized preview" style={{ maxWidth: 'min(420px, 100%)' }} />
             </div>
+          )}
+        </>
+      )}
+
+      {batch.length > 0 && (
+        <>
+          <p className="hint" style={{ marginTop: 14 }}>
+            {batch.length} images selected. With the lock on, each image is resized to the width below while keeping its own proportions. With the lock off, every image gets the exact width and height below.
+          </p>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="rs-batch-w">Width (px)</label>
+              <input id="rs-batch-w" type="text" inputMode="numeric" value={batchWidth} onChange={(e) => { setBatchWidth(Math.max(1, parseInt(e.target.value, 10) || 0)); setOutputs([]); }} />
+            </div>
+            <div className="field">
+              <label htmlFor="rs-batch-h">Height (px)</label>
+              <input id="rs-batch-h" type="text" inputMode="numeric" value={batchHeight} disabled={batchLock} onChange={(e) => { setBatchHeight(Math.max(1, parseInt(e.target.value, 10) || 0)); setOutputs([]); }} />
+            </div>
+            <div className="field">
+              <label>Aspect ratio</label>
+              <div className="checks">
+                <label><input type="checkbox" checked={batchLock} onChange={(e) => { setBatchLock(e.target.checked); setOutputs([]); }} /> Keep aspect ratio</label>
+              </div>
+            </div>
+          </div>
+          <div className="field">
+            <label>Social media presets</label>
+            <div className="btn-row" style={{ marginTop: 0 }}>
+              {SOCIAL_PRESETS.map((p) => (
+                <button key={p.label} type="button" className="btn ghost" onClick={() => { setBatchLock(false); setBatchWidth(p.w); setBatchHeight(p.h); setOutputs([]); }}>
+                  {p.label} {p.w}×{p.h}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="btn-row">
+            <button type="button" className="btn" onClick={resizeAll} disabled={busy}>{busy ? <BusyLabel label="Resizing your images..." /> : `Resize ${batch.length} images`}</button>
+            {good.length > 1 && !busy && (
+              <button type="button" className="btn secondary" onClick={downloadZip}>Download all as ZIP</button>
+            )}
+          </div>
+          {busy && <ProcessingNote label={progress || 'Resizing your images...'} />}
+          {outputs.length > 0 && (
+            <div className="file-results">
+              {outputs.map((o, i) => (
+                <div className="file-row" key={`${o.name}-${i}`}>
+                  {o.blob ? (
+                    <>
+                      <img src={o.url} alt="" className="file-thumb" />
+                      <span className="file-name">{o.name}</span>
+                      <span className="file-size">{formatBytes(o.origSize)} to {formatBytes(o.blob.size)} ({o.w} × {o.h} px)</span>
+                      <button type="button" className="btn secondary" onClick={() => downloadBlob(o.blob, o.name)}>Download</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="file-name">{o.name}</span>
+                      <span className="file-error">{o.error}</span>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {good.length > 0 && !busy && (
+            <p className="hint" style={{ marginTop: 12 }}>
+              Done: {good.length} image{good.length > 1 ? 's' : ''} resized on your device. Nothing was uploaded.
+            </p>
           )}
         </>
       )}
