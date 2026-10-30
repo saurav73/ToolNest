@@ -29,6 +29,10 @@ const FAQS = [
     a: 'Text-only PDFs are already tiny and efficient; turning their pages into images can make them larger. This tool shines on PDFs with photos and scans. If the result is not smaller, the tool tells you and you can simply keep your original.',
   },
   {
+    q: 'Can I compress several PDFs at once?',
+    a: 'Yes. Drop several PDFs, pick one level, and compress them in one run. Each compressed file gets its own download, and when more than one succeeds you can also download them all as a single ZIP. A file that is already efficient is left out, with a note, so you keep the original instead.',
+  },
+  {
     q: 'Is my document uploaded for compression?',
     a: 'No. Rendering and rebuilding happen entirely in your browser. Your PDF never leaves your device, which is why this is safe for private documents.',
   },
@@ -41,7 +45,8 @@ const CONTENT = (
       Scanned documents and image-heavy reports routinely exceed email and portal
       limits of 5, 10 or 25 MB. This compressor rebuilds each page at a sensible
       resolution and shows you the before and after sizes, so you only download the
-      result when it actually helps. Three levels let you trade quality for size:
+      result when it actually helps. Drop several PDFs at once and compress them in
+      one run, with a single ZIP download for the results. Three levels let you trade quality for size:
       gentle for near-original clarity, balanced for everyday sending, and smallest
       for strict upload limits.
     </p>
@@ -77,70 +82,112 @@ const CONTENT = (
 );
 
 export default function CompressPdf() {
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [levelId, setLevelId] = useState('medium');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState('');
   const [status, setStatus] = useState(null);
   const [result, setResult] = useState(null);
+  const [outputs, setOutputs] = useState([]);
 
-  const onFiles = (files) => {
-    setFile(files[0]);
+  const onFiles = (newFiles) => {
+    setFiles((prev) => [...prev, ...newFiles]);
     setStatus(null);
     setResult(null);
+    setOutputs([]);
     setProgress('');
+  };
+  const remove = (idx) => {
+    setResult(null);
+    setOutputs([]);
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const compressOne = async (file, level, onPage) => {
+    const data = new Uint8Array(await file.arrayBuffer());
+    const src = await getDocument({ data }).promise;
+    const out = await PDFDocument.create();
+    const total = src.numPages;
+    for (let i = 1; i <= total; i += 1) {
+      if (onPage) onPage(`Processing page ${i} of ${total}...`);
+      const page = await src.getPage(i);
+      const unscaled = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: level.scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      const blob = await new Promise((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('render'))), 'image/jpeg', level.quality));
+      const jpg = await out.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+      const newPage = out.addPage([unscaled.width, unscaled.height]);
+      newPage.drawImage(jpg, { x: 0, y: 0, width: unscaled.width, height: unscaled.height });
+    }
+    const saved = await out.save();
+    const before = file.size;
+    const after = saved.length;
+    if (after >= before) return { skipped: true, name: file.name, before, after, pages: total };
+    return {
+      blob: new Blob([saved], { type: 'application/pdf' }),
+      name: `compressed-${file.name}`,
+      sourceName: file.name,
+      before,
+      after,
+      pct: Math.round((1 - after / before) * 100),
+      pages: total,
+    };
   };
 
   const compress = async () => {
-    if (!file) return;
+    if (!files.length) return;
     const level = LEVELS.find((l) => l.id === levelId);
     const started = Date.now();
     setBusy(true);
     setStatus(null);
     setResult(null);
+    setOutputs([]);
     setProgress('Compressing your PDF...');
     try {
-      const data = new Uint8Array(await file.arrayBuffer());
-      const src = await getDocument({ data }).promise;
-      const out = await PDFDocument.create();
-      const total = src.numPages;
-      for (let i = 1; i <= total; i += 1) {
-        setProgress(`Processing page ${i} of ${total}...`);
-        const page = await src.getPage(i);
-        const unscaled = page.getViewport({ scale: 1 });
-        const viewport = page.getViewport({ scale: level.scale });
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.ceil(viewport.width);
-        canvas.height = Math.ceil(viewport.height);
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-        const blob = await new Promise((resolve, reject) =>
-          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('render'))), 'image/jpeg', level.quality));
-        const jpg = await out.embedJpg(new Uint8Array(await blob.arrayBuffer()));
-        const newPage = out.addPage([unscaled.width, unscaled.height]);
-        newPage.drawImage(jpg, { x: 0, y: 0, width: unscaled.width, height: unscaled.height });
-      }
-      const saved = await out.save();
-      const before = file.size;
-      const after = saved.length;
-      await holdAtLeast(started);
-      if (after < before) {
-        const pct = Math.round((1 - after / before) * 100);
-        setResult({
-          blob: new Blob([saved], { type: 'application/pdf' }),
-          name: `compressed-${file.name}`,
-          before,
-          after,
-          pct,
-          pages: total,
-        });
+      if (files.length === 1) {
+        const out = await compressOne(files[0], level, (p) => setProgress(p));
+        await holdAtLeast(started);
+        if (out.skipped) {
+          setStatus({
+            ok: false,
+            msg: `The rebuilt file (${formatBytes(out.after)}) is not smaller than your original (${formatBytes(out.before)}). This PDF is already efficient, so keep the original.`,
+          });
+        } else {
+          setResult(out);
+        }
       } else {
-        setStatus({
-          ok: false,
-          msg: `The rebuilt file (${formatBytes(after)}) is not smaller than your original (${formatBytes(before)}). This PDF is already efficient, so keep the original.`,
-        });
+        const done = [];
+        const usedNames = new Set();
+        const uniqueName = (name) => {
+          if (!usedNames.has(name)) { usedNames.add(name); return name; }
+          const base = name.replace(/\.pdf$/i, '');
+          let i = 2;
+          let candidate = `${base}-${i}.pdf`;
+          while (usedNames.has(candidate)) { i += 1; candidate = `${base}-${i}.pdf`; }
+          usedNames.add(candidate);
+          return candidate;
+        };
+        for (let i = 0; i < files.length; i += 1) {
+          setProgress(`Compressing PDF ${i + 1} of ${files.length}: ${files[i].name}`);
+          try {
+            const out = await compressOne(files[i], level, (p) => setProgress(`PDF ${i + 1} of ${files.length}: ${p}`));
+            done.push({ ...out, name: uniqueName(out.name) });
+          } catch (e) {
+            done.push({ name: files[i].name, error: 'Compression failed. The file may be encrypted, damaged, or too large for your device\'s memory.' });
+          }
+          setOutputs([...done]);
+        }
+        await holdAtLeast(started);
+        if (done.filter((d) => d.blob).length === 0) {
+          setStatus({ ok: false, msg: 'None of the PDFs could be compressed to a smaller file. Keep the originals.' });
+        }
       }
     } catch (e) {
       setStatus({ ok: false, msg: 'Compression failed. The file may be encrypted, damaged, or too large for your device\'s memory.' });
@@ -149,6 +196,16 @@ export default function CompressPdf() {
     setBusy(false);
   };
 
+  const downloadZip = async () => {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    outputs.filter((o) => o.blob).forEach((o) => zip.file(o.name, o.blob));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, 'compressed-pdfs.zip');
+  };
+
+  const good = outputs.filter((o) => o.blob);
+
   return (
     <ToolLayout
       slug="compress-pdf"
@@ -156,16 +213,24 @@ export default function CompressPdf() {
       title="Compress PDF: Reduce PDF File Size Online | ToolNest"
       description="Compress PDF files in your browser by rebuilding pages at efficient resolution. See before/after sizes. No upload, documents stay private."
       h1="Compress PDF"
-      intro="Reduce the size of a PDF in your browser and compare the result before downloading. Nothing is uploaded, so private documents stay on your device."
+      intro="Reduce the size of a PDF in your browser and compare the result before downloading. Drop several PDFs to compress them in one run, with a single ZIP download. Nothing is uploaded, so private documents stay on your device."
       faqs={FAQS}
       content={CONTENT}
     >
-      <FileDrop accept="application/pdf,.pdf" onFiles={onFiles} label="Drop a PDF here, or click to choose one" />
+      <FileDrop accept="application/pdf,.pdf" multiple onFiles={onFiles} label="Drop PDFs here, or click to choose them (batch supported)" />
 
-      {file && (
-        <p className="hint" style={{ marginTop: 14 }}>
-          {file.name}: {formatBytes(file.size)}
-        </p>
+      {files.length > 0 && (
+        <ul className="file-list">
+          {files.map((f, i) => (
+            <li key={`${f.name}-${i}`} className="file-item">
+              <span className="file-name">{i + 1}. {f.name}</span>
+              <span className="file-size">{formatBytes(f.size)}</span>
+              <span className="file-actions">
+                <button type="button" className="btn ghost" onClick={() => remove(i)} disabled={busy}>Remove</button>
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
 
       <div className="field" style={{ marginTop: 8 }}>
@@ -185,10 +250,34 @@ export default function CompressPdf() {
         />
       )}
       <div className="btn-row">
-        <button type="button" className="btn" onClick={compress} disabled={busy || !file}>
-          {busy ? <BusyLabel label="Compressing your PDF..." /> : 'Compress PDF'}
+        <button type="button" className="btn" onClick={compress} disabled={busy || !files.length}>
+          {busy ? <BusyLabel label="Compressing your PDF..." /> : (files.length > 1 ? `Compress ${files.length} PDFs` : 'Compress PDF')}
         </button>
+        {files.length > 0 && <button type="button" className="btn ghost" onClick={() => { setFiles([]); setResult(null); setOutputs([]); setStatus(null); }} disabled={busy}>Clear list</button>}
+        {good.length > 1 && !busy && (
+          <button type="button" className="btn secondary" onClick={downloadZip}>Download all as ZIP</button>
+        )}
       </div>
+      {outputs.length > 0 && (
+        <div className="file-results">
+          {outputs.map((o, i) => (
+            <div className="file-row" key={`${o.name}-${i}`}>
+              {o.blob ? (
+                <>
+                  <span className="file-name">{o.name}</span>
+                  <span className="file-size">{formatBytes(o.before)} to {formatBytes(o.after)} ({o.pct}% smaller, {o.pages} pages)</span>
+                  <button type="button" className="btn secondary" onClick={() => downloadBlob(o.blob, o.name)}>Download</button>
+                </>
+              ) : (
+                <>
+                  <span className="file-name">{o.name}</span>
+                  <span className="file-error">{o.error || `Already efficient (${formatBytes(o.after)} vs ${formatBytes(o.before)} original), so the original was kept.`}</span>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       <p className="hint">
         Honest note: pages are rebuilt as images, so text in the compressed file
         cannot be selected or searched. Best for scans and photo-heavy documents.

@@ -221,7 +221,7 @@ export const TOOLS = [
     path: '/compress-pdf',
     name: 'Compress PDF',
     category: 'PDF Tools',
-    blurb: 'Reduce PDF file size in your browser and compare before and after sizes.',
+    blurb: 'Reduce PDF file size in your browser and compare before and after sizes, with batch compression and a single ZIP download for several PDFs.',
     keywords: 'compress pdf, reduce pdf size, shrink pdf',
   },
   {
