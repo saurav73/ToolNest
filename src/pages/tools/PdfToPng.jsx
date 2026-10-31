@@ -15,6 +15,10 @@ const FAQS = [
     a: 'Yes. Enter a page range and only those pages render, up to 50 pages per run to protect your browser\'s memory. Multi page results can be downloaded one by one or together as a ZIP, each file named with its page number.',
   },
   {
+    q: 'Can I convert several PDFs at once?',
+    a: 'Yes. Drop more than one PDF and batch mode converts every page of each file at the resolution you pick, up to 50 pages per file. Results are listed per file with individual downloads, or take everything together as one ZIP.',
+  },
+  {
     q: 'Is the conversion private?',
     a: 'Completely. The PDF is opened and rendered inside your browser with pdf.js. The file is never uploaded to a server, so sensitive documents such as contracts and statements stay on your device from start to finish.',
   },
@@ -42,7 +46,9 @@ const CONTENT = (
       each finished page is listed with its pixel size and file size. Download
       pages individually, or all at once as a ZIP. Files are named with their
       page numbers automatically, so a long document produces a tidy,
-      ordered set of images instead of a pile of downloads to rename.
+      ordered set of images instead of a pile of downloads to rename. Dropping
+      several PDFs at once switches to batch mode, converting every page of
+      each file with one combined ZIP download.
     </p>
     <h2>When PNG is worth its bigger files</h2>
     <ul>
@@ -99,7 +105,7 @@ export default function PdfToPng() {
       title="PDF to PNG Converter Free: Turn Pages into Images | ToolNest"
       description="Convert PDF pages to crisp PNG images free in your browser. Pick a page range and resolution, download singly or as a ZIP file."
       h1="PDF to PNG Converter"
-      intro="Convert PDF pages to lossless PNG images in your browser, at up to 216 DPI, by the page or in ranges. Your document is rendered locally and never uploaded."
+      intro="Convert PDF pages to lossless PNG images in your browser, at up to 216 DPI, by the page, in ranges, or several PDFs in one batch. Your document is rendered locally and never uploaded."
       faqs={FAQS}
       content={CONTENT}
       format={{ mime: 'image/png', ext: 'png', label: 'PNG' }}

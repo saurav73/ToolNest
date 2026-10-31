@@ -15,6 +15,10 @@ const FAQS = [
     a: 'Yes. Set the page range before converting and only those pages are rendered. To keep your browser responsive the tool converts up to 50 pages per run; longer documents can be done in a few ranges, and multi page results can be downloaded together as a ZIP.',
   },
   {
+    q: 'Can I convert several PDFs at once?',
+    a: 'Yes. Drop more than one PDF and batch mode converts every page of each file at the resolution you pick, up to 50 pages per file. Results are listed per file with individual downloads, or take everything together as one ZIP.',
+  },
+  {
     q: 'Is my document private?',
     a: 'Yes. The PDF is read into your browser\'s memory and rendered locally. No server receives it, which makes this safe for contracts, statements and other documents you would not upload to a conversion site.',
   },
@@ -43,7 +47,9 @@ const CONTENT = (
       results list with its pixel dimensions and file size, ready to download
       on its own, and when there is more than one page you can take them all
       together in a ZIP. Pages are rendered in order and named with their page
-      number, so a 30 page report stays organised on your disk.
+      number, so a 30 page report stays organised on your disk. Dropping
+      several PDFs at once switches to batch mode, converting every page of
+      each file with one combined ZIP download.
     </p>
     <h2>When a JPG beats the PDF</h2>
     <ul>
@@ -99,7 +105,7 @@ export default function PdfToJpg() {
       title="PDF to JPG Converter Free: Turn Pages into Images | ToolNest"
       description="Convert PDF pages to JPG images free in your browser. Choose quality and resolution, download pages one by one or all in a ZIP."
       h1="PDF to JPG Converter"
-      intro="Convert PDF pages to JPG images in your browser, at 72 to 216 DPI, one page at a time or a whole range at once. Your document is rendered on your device and never uploaded."
+      intro="Convert PDF pages to JPG images in your browser, at 72 to 216 DPI, one page at a time, a whole range at once, or several PDFs in one batch. Your document is rendered on your device and never uploaded."
       faqs={FAQS}
       content={CONTENT}
       format={{ mime: 'image/jpeg', ext: 'jpg', label: 'JPG' }}

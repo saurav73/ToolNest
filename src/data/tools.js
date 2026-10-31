@@ -302,7 +302,7 @@ export const TOOLS = [
     path: '/pdf-to-jpg',
     name: 'PDF to JPG Converter',
     category: 'PDF Tools',
-    blurb: 'Convert PDF pages to JPG images at up to 216 DPI, by page range, with ZIP download. No upload.',
+    blurb: 'Convert PDF pages to JPG images at up to 216 DPI, by page range, with ZIP download, or convert several PDFs in one batch. No upload.',
     keywords: 'pdf to jpg, convert pdf to jpg, pdf to image',
   },
   {
@@ -310,7 +310,7 @@ export const TOOLS = [
     path: '/pdf-to-png',
     name: 'PDF to PNG Converter',
     category: 'PDF Tools',
-    blurb: 'Convert PDF pages to crisp lossless PNG images at up to 216 DPI, singly or as a ZIP. No upload.',
+    blurb: 'Convert PDF pages to crisp lossless PNG images at up to 216 DPI, singly or as a ZIP, or convert several PDFs in one batch. No upload.',
     keywords: 'pdf to png, convert pdf to png, pdf page to png',
   },
   {
