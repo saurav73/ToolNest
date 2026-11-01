@@ -294,7 +294,7 @@ export const TOOLS = [
     path: '/image-to-text',
     name: 'Image to Text Converter',
     category: 'Image Tools',
-    blurb: 'Extract text from photos, scans and screenshots with OCR that runs in your browser. Nothing uploaded.',
+    blurb: 'Extract text from photos, scans and screenshots with OCR that runs in your browser, one image or a whole batch at once. Nothing uploaded.',
     keywords: 'image to text, ocr online, extract text from image, photo to text',
   },
   {

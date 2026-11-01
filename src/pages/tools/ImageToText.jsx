@@ -19,6 +19,10 @@ const FAQS = [
     a: 'Clear, straight on photos or scans of printed text at a decent size work best: receipts, book pages, signs, documents and screenshots. Aim for sharp focus, even lighting and text that is not tiny. Handwriting, heavily stylised fonts, and text photographed at a steep angle will produce errors or fail, and the tool says so honestly rather than pretending otherwise.',
   },
   {
+    q: 'Can I extract text from several images at once?',
+    a: 'Yes. Drop several JPG, PNG or WebP images and they are read one after another with the same OCR engine, in one batch. Each image gets its own extracted text with its own download, or take all of them together as one text file or one ZIP file of text files.',
+  },
+  {
     q: 'Which languages are supported?',
     a: 'English, which covers the vast majority of documents people run through a quick converter. Keeping one language loaded keeps the tool fast and the download small. Mixed English documents with the odd foreign name or place usually still read well.',
   },
@@ -42,7 +46,9 @@ const CONTENT = (
     <h2>How to extract text from an image</h2>
     <p>
       Drop a JPG, PNG or WebP image onto the box, or click to choose one, then
-      press Extract text. The first time you run it, the browser downloads
+      press Extract text. Drop several images at once and they are read one
+      after another in a batch, each with its own extracted text and download,
+      plus one combined download for the whole batch. The first time you run it, the browser downloads
       the OCR engine and English language data (a few megabytes from a public
       CDN) and caches them for next time. A progress indicator follows the
       recognition as it works through the image. When it finishes, the text
@@ -102,6 +108,11 @@ export default function ImageToText() {
   const [status, setStatus] = useState('');
   const [pct, setPct] = useState(0);
   const [error, setError] = useState('');
+  const [batchFiles, setBatchFiles] = useState([]);
+  const [batchResults, setBatchResults] = useState([]);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchProgress, setBatchProgress] = useState('');
+  const [batchError, setBatchError] = useState('');
   const urlRef = useRef('');
 
   useEffect(() => () => {
@@ -109,8 +120,26 @@ export default function ImageToText() {
   }, []);
 
   const onFiles = async (files) => {
-    const f = files[0];
+    const list = [...(files || [])].filter((f) => f && f.type && f.type.startsWith('image/'));
     setError('');
+    setBatchError('');
+    if (list.length > 1) {
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      urlRef.current = '';
+      setFile(null);
+      setPreviewUrl('');
+      setText('');
+      setBatchResults([]);
+      setBatchFiles(list);
+      return;
+    }
+    setBatchFiles([]);
+    setBatchResults([]);
+    const f = list[0];
+    if (!f) {
+      setError('That file could not be read as an image. Choose a JPG, PNG or WebP picture of printed text.');
+      return;
+    }
     setText('');
     try {
       const { url } = await loadImageFromFile(f);
@@ -121,6 +150,75 @@ export default function ImageToText() {
     } catch (e) {
       setError('That file could not be read as an image. Choose a JPG, PNG or WebP picture of printed text.');
     }
+  };
+
+  const extractAll = async () => {
+    if (!batchFiles.length) return;
+    setBatchBusy(true);
+    setBatchError('');
+    setBatchResults([]);
+    setBatchProgress('Loading the OCR engine (first run downloads a few MB)...');
+    let worker = null;
+    const results = [];
+    try {
+      const { createWorker } = await import('tesseract.js');
+      worker = await createWorker('eng', 1, {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            setPct(Math.round((m.progress || 0) * 100));
+          }
+        },
+      });
+      for (let i = 0; i < batchFiles.length; i += 1) {
+        const f = batchFiles[i];
+        setBatchProgress(`Reading image ${i + 1} of ${batchFiles.length}: ${f.name}`);
+        setPct(0);
+        try {
+          const { data } = await worker.recognize(f);
+          const found = (data && data.text ? data.text : '').trim();
+          results.push(found
+            ? { name: f.name, text: found }
+            : { name: f.name, error: 'No readable text was found in this image.' });
+        } catch (e) {
+          results.push({ name: f.name, error: 'Text recognition failed for this image.' });
+        }
+        setBatchResults([...results]);
+      }
+    } catch (e) {
+      setBatchError('Text recognition failed. The OCR engine loads from a CDN on first use, so check your connection and try again.');
+    } finally {
+      if (worker) { try { await worker.terminate(); } catch { /* already gone */ } }
+      setBatchProgress('');
+      setPct(0);
+      setBatchBusy(false);
+    }
+  };
+
+  const batchTxtName = (name) => {
+    const base = name.replace(/\.[^.]+$/, '') || 'image';
+    return `${base}.txt`;
+  };
+
+  const downloadBatchCombined = () => {
+    const good = batchResults.filter((r) => r.text);
+    const combined = good.map((r) => `===== ${r.name} =====\n\n${r.text}`).join('\n\n');
+    downloadBlob(new Blob([combined], { type: 'text/plain' }), 'extracted-texts.txt');
+  };
+
+  const downloadBatchZip = async () => {
+    const good = batchResults.filter((r) => r.text);
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    const used = new Set();
+    good.forEach((r) => {
+      let name = batchTxtName(r.name);
+      let n = 2;
+      while (used.has(name)) { name = `${batchTxtName(r.name).replace(/\.txt$/, '')}-${n}.txt`; n += 1; }
+      used.add(name);
+      zip.file(name, r.text);
+    });
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, 'extracted-texts.zip');
   };
 
   const extract = async () => {
@@ -169,12 +267,60 @@ export default function ImageToText() {
       title="Image to Text Converter Free: OCR in Your Browser | ToolNest"
       description="Extract text from images and photos with free OCR in your browser. Copy the text or download it as a file. Images are never uploaded."
       h1="Image to Text Converter"
-      intro="Extract the text from photos, scans and screenshots with OCR that runs entirely in your browser. Your image is never uploaded, which makes this safe for receipts, letters and private documents."
+      intro="Extract the text from photos, scans and screenshots with OCR that runs entirely in your browser, one image or a whole batch at once. Your image is never uploaded, which makes this safe for receipts, letters and private documents."
       faqs={FAQS}
       content={CONTENT}
     >
-      <FileDrop accept="image/jpeg,image/png,image/webp" onFiles={onFiles} label="Drop an image with printed text here, or click to choose one" />
+      <FileDrop accept="image/jpeg,image/png,image/webp" multiple onFiles={onFiles} label="Drop images with printed text here, or click to choose them (batch supported)" />
       {error && <div className="message err">{error}</div>}
+      {batchError && <div className="message err">{batchError}</div>}
+
+      {batchFiles.length > 0 && (
+        <>
+          <div className="file-results">
+            {batchFiles.map((f, i) => (
+              <div className="file-row" key={`${f.name}-${i}`}>
+                <span className="file-name">{f.name}</span>
+                <span className={batchResults[i] && batchResults[i].error ? 'file-error' : 'file-size'}>{batchResults[i] && batchResults[i].text ? `${batchResults[i].text.split(/\s+/).filter(Boolean).length} words` : batchResults[i] && batchResults[i].error ? batchResults[i].error : 'Waiting'}</span>
+              </div>
+            ))}
+          </div>
+          <div className="btn-row">
+            <button type="button" className="btn" onClick={extractAll} disabled={batchBusy}>
+              {batchBusy ? <BusyLabel label="Reading your images..." /> : `Extract text from ${batchFiles.length} images`}
+            </button>
+            {batchResults.filter((r) => r.text).length > 1 && !batchBusy && (
+              <>
+                <button type="button" className="btn secondary" onClick={downloadBatchCombined}>Download all as .txt</button>
+                <button type="button" className="btn secondary" onClick={downloadBatchZip}>Download all as ZIP</button>
+              </>
+            )}
+          </div>
+          {batchBusy && <ProcessingNote label={batchProgress || 'Reading your images...'} />}
+          {batchBusy && pct > 0 && (
+            <div className="meter" aria-hidden="true" style={{ marginTop: 10 }}>
+              <div style={{ width: `${pct}%`, background: 'var(--accent)' }} />
+            </div>
+          )}
+          {batchResults.map((r, i) => r.text ? (
+            <div className="field" style={{ marginTop: 16 }} key={`${r.name}-${i}`}>
+              <label>{r.name} ({r.text.split(/\s+/).filter(Boolean).length} words, {r.text.length} characters)</label>
+              <textarea className="mono" rows={8} value={r.text} onChange={(e) => setBatchResults((prev) => prev.map((p, j) => (j === i ? { ...p, text: e.target.value } : p)))} />
+              <div className="btn-row">
+                <CopyButton text={r.text} label="Copy text" className="btn secondary" />
+                <button type="button" className="btn secondary" onClick={() => downloadBlob(new Blob([r.text], { type: 'text/plain' }), batchTxtName(r.name))}>
+                  Download .txt
+                </button>
+              </div>
+            </div>
+          ) : null)}
+          {batchResults.length > 0 && !batchBusy && (
+            <p className="hint" style={{ marginTop: 12 }}>
+              Done: {batchResults.filter((r) => r.text).length} of {batchFiles.length} images read on your device. Nothing was uploaded.
+            </p>
+          )}
+        </>
+      )}
 
       {file && (
         <>
