@@ -212,6 +212,10 @@ const FAQS = [
     a: 'The standard formula divides the number of correctly typed characters by five (the conventional average word length, including spaces), then divides by the time in minutes. Only correct characters count, so errors never inflate your score.',
   },
   {
+    q: 'How many words per second can I type?',
+    a: 'Divide your WPM by 60. A speed of 60 WPM means about 1 word per second, 40 WPM means about 0.67 words per second, and 120 WPM means 2 words per second. Take the test above to find your own WPM, then divide by 60 for your words per second.',
+  },
+  {
     q: 'Which test modes can I choose?',
     a: 'Timed tests run for 15, 30, 60 or 120 seconds. Word count tests give you exactly 10, 25 or 50 words and stop the clock when you finish them. For both you can pick common words, sentences and quotes, or numbers, and turn punctuation on or off for the word and sentence tests. With punctuation on, the numbers test also includes decimals and comma-grouped thousands. You can also paste your own text and practise on that instead.',
   },
