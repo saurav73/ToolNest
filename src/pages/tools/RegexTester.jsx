@@ -28,6 +28,10 @@ const FAQS = [
     q: 'Is my test text sent anywhere?',
     a: 'No. The pattern runs in your browser with the built-in JavaScript engine, which is the same engine most websites use. Nothing you type or paste leaves your device, so you can safely test patterns against log lines, private data samples and production-like text.',
   },
+  {
+    q: 'Can I replace matches, not just find them?',
+    a: 'Yes. Type a replacement in the replacement box and the replaced text updates live below it. Use $1, $2 and so on to reuse capture groups, $& for the whole match, and $$ for a literal dollar sign. Every match in the text is replaced, so you can preview a find-and-replace before running it in your editor or script.',
+  },
 ];
 
 const CONTENT = (
@@ -39,6 +43,8 @@ const CONTENT = (
       with its position and capture groups listed below. Change the pattern or the
       flags and the results update immediately, so you can iterate on a tricky
       pattern in seconds instead of switching between your editor and a console.
+      When the pattern is right, the replacement box previews a find-and-replace
+      on the same text, so you can check the result before running it for real.
     </p>
     <h2>How to use the regex tester</h2>
     <ul>
@@ -46,6 +52,7 @@ const CONTENT = (
       <li><strong>Watch the highlights:</strong> each match is marked in your sample text, so you can see at a glance whether the pattern grabs too much, too little, or the wrong part entirely.</li>
       <li><strong>Check the groups:</strong> if your pattern uses parentheses, every group is listed per match. A group that is empty or holds the wrong slice is the most common regex bug, and it shows up here first.</li>
       <li><strong>Start from a preset:</strong> the buttons above load common patterns for email addresses, URLs, phone numbers, dates, hex colors and IP addresses. Use them as-is or edit them to fit your format.</li>
+      <li><strong>Preview a replacement:</strong> type a replacement such as $1-$2 to reorder capture groups, and check the replaced text below. $& inserts the whole match and $$ inserts a literal dollar sign.</li>
     </ul>
     <h2>Common regex mistakes this tester catches</h2>
     <ul>
@@ -72,6 +79,7 @@ export default function RegexTester() {
   const [pattern, setPattern] = useState('[\\w.+-]+@[\\w-]+\\.[\\w.]+');
   const [flags, setFlags] = useState({ g: true, i: true, m: false, s: false, u: false });
   const [text, setText] = useState('Contact us at hello@example.com or support@toolnest.example.org for help.');
+  const [replacement, setReplacement] = useState('');
 
   const toggleFlag = (key) => setFlags((f) => ({ ...f, [key]: !f[key] }));
 
@@ -111,6 +119,22 @@ export default function RegexTester() {
     return parts;
   }, [result, text]);
 
+  const replaced = useMemo(() => {
+    const flagStr = Object.entries(flags).filter(([, v]) => v).map(([k]) => k).join('');
+    if (!pattern) return text;
+    let re;
+    try {
+      re = new RegExp(pattern, flagStr.includes('g') ? flagStr : flagStr + 'g');
+    } catch (e) {
+      return text;
+    }
+    try {
+      return text.replace(re, replacement);
+    } catch (e) {
+      return text;
+    }
+  }, [pattern, flags, text, replacement]);
+
   const applyPreset = (p) => {
     setPattern(p.pattern);
     setFlags({ g: true, i: p.flags.includes('i'), m: false, s: false, u: false });
@@ -121,9 +145,9 @@ export default function RegexTester() {
       slug="regex-tester"
       path="/regex-tester"
       title="Regex Tester Online: Test Patterns Live Free | ToolNest"
-      description="Test regular expressions live against your own text: matches, groups and clear errors, plus ready-made patterns for email, URL and dates."
+      description="Test regex live: matches, groups, errors and find-and-replace with $1 group refs. Free, private, runs in your browser."
       h1="Regex Tester"
-      intro="Test regular expressions live against your own text, with every match highlighted, capture groups listed, and clear errors when a pattern is invalid."
+      intro="Test regular expressions live against your own text, with every match highlighted, capture groups listed, clear errors when a pattern is invalid, and a live find-and-replace preview."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -147,6 +171,19 @@ export default function RegexTester() {
         <label htmlFor="rx-text">Test text</label>
         <textarea id="rx-text" rows={5} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
       </div>
+      <div className="field">
+        <label htmlFor="rx-replacement">Replacement (optional, $1 for group 1, $&amp; for the whole match, $$ for a dollar sign)</label>
+        <input id="rx-replacement" type="text" value={replacement} onChange={(e) => setReplacement(e.target.value)} spellCheck={false} placeholder="$1" />
+      </div>
+      {!result.error && (
+        <div className="field">
+          <label htmlFor="rx-replaced">Replaced text (live preview, every match replaced)</label>
+          <textarea id="rx-replaced" rows={5} value={replaced} readOnly spellCheck={false} />
+          <div className="btn-row" style={{ marginTop: 8 }}>
+            <CopyButton text={replaced} label="Copy replaced text" className="btn secondary" />
+          </div>
+        </div>
+      )}
       {result.error && <div className="message err">{result.error}</div>}
       {!result.error && (
         <p className="lede">{result.matches.length} match{result.matches.length === 1 ? '' : 'es'} found{result.matches.length >= 500 ? ' (showing first 500)' : ''}.</p>
@@ -165,8 +202,8 @@ export default function RegexTester() {
               <li key={i}>
                 <code>{m.full === '' ? '(empty match)' : m.full}</code> at position {m.index}
                 {m.groups.length > 0 && m.groups.some((g) => g !== undefined) && (
-                  <> — groups: {m.groups.map((g, gi) => (
-                    <span key={gi}>[{gi + 1}] {g === undefined ? '—' : g === '' ? '(empty)' : g} </span>
+                  <> groups: {m.groups.map((g, gi) => (
+                    <span key={gi}>[{gi + 1}] {g === undefined ? '(none)' : g === '' ? '(empty)' : g} </span>
                   ))}</>
                 )}
               </li>

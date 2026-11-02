@@ -327,7 +327,7 @@ export const TOOLS = [
     path: '/regex-tester',
     name: 'Regex Tester',
     category: 'Developer Tools',
-    blurb: 'Test regular expressions live against your own text, with matches highlighted, groups listed and clear errors.',
+    blurb: 'Test regular expressions live against your own text, with matches highlighted, groups listed, clear errors and a live find-and-replace preview.',
     keywords: 'regex tester, test regex online, regular expression tester',
   },
   {
