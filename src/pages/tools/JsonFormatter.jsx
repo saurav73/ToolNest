@@ -19,6 +19,10 @@ const FAQS = [
     q: 'Why does my JSON fail with single quotes?',
     a: 'The JSON standard requires double quotes around keys and string values. Single-quoted text is valid in JavaScript object literals but not in JSON. Replace single quotes with double quotes and escape any double quotes inside the values.',
   },
+  {
+    q: 'Can I sort the keys alphabetically?',
+    a: 'Yes. Turn on "Sort keys A to Z" before you press Format or Minify. Every object in the document is rebuilt with its keys in alphabetical order, at every nesting level, so two documents that hold the same data compare cleanly. Array order is never changed, and with the option off the original key order is kept exactly.',
+  },
 ];
 
 const CONTENT = (
@@ -49,8 +53,11 @@ const CONTENT = (
       four spaces or tabs. Minifying does the same round trip but writes with
       no optional whitespace at all. Because the output is regenerated from the
       parsed data rather than tidied up as raw text, formatting can never
-      accidentally change a value, reorder is not applied, and invalid input
-      can never slip through dressed up as valid output.
+      accidentally change a value, and invalid input can never slip through
+      dressed up as valid output. By default the original key order is kept;
+      turn on "Sort keys A to Z" and every object is rebuilt with its keys in
+      alphabetical order instead, which is handy when you compare two documents
+      that hold the same data in a different order.
     </p>
     <h2>Practical tips for debugging faster</h2>
     <ul>
@@ -90,6 +97,16 @@ const CONTENT = (
   </>
 );
 
+function sortKeysDeep(value) {
+  if (Array.isArray(value)) return value.map(sortKeysDeep);
+  if (value && typeof value === 'object') {
+    const sorted = {};
+    for (const key of Object.keys(value).sort()) sorted[key] = sortKeysDeep(value[key]);
+    return sorted;
+  }
+  return value;
+}
+
 function describeError(err, text) {
   const raw = err && err.message ? err.message : 'Invalid JSON.';
   const posMatch = raw.match(/position\s+(\d+)/i);
@@ -106,6 +123,7 @@ function describeError(err, text) {
 export default function JsonFormatter() {
   const [input, setInput] = useState('');
   const [indent, setIndent] = useState(2);
+  const [sortKeys, setSortKeys] = useState(false);
   const [output, setOutput] = useState('');
   const [status, setStatus] = useState(null);
 
@@ -128,9 +146,10 @@ export default function JsonFormatter() {
       setStatus({ ok: false, msg: `Invalid JSON: ${describeError(parsed.error, input)}` });
       return;
     }
+    const value = sortKeys ? sortKeysDeep(parsed.value) : parsed.value;
     const out = minify
-      ? JSON.stringify(parsed.value)
-      : JSON.stringify(parsed.value, null, indent === 0 ? '\t' : indent);
+      ? JSON.stringify(value)
+      : JSON.stringify(value, null, indent === 0 ? '\t' : indent);
     setOutput(out);
     setStatus({ ok: true, msg: minify ? 'Valid JSON, minified successfully.' : 'Valid JSON, formatted successfully.' });
   };
@@ -140,9 +159,9 @@ export default function JsonFormatter() {
       slug="json-formatter"
       path="/json-formatter"
       title="JSON Formatter: Format, Minify and Validate JSON | ToolNest"
-      description="Format, minify and validate JSON online with clear error messages showing line and column. Free, private, runs in your browser."
+      description="Format, minify and validate JSON online, with optional A to Z key sorting and error messages showing line and column."
       h1="JSON Formatter"
-      intro="Format messy JSON into readable, indented output, minify it back to one line, and validate it with error messages that show the exact line and column of the problem."
+      intro="Format messy JSON into readable, indented output, minify it back to one line, optionally sort keys A to Z, and validate it with error messages that show the exact line and column of the problem."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -177,6 +196,12 @@ export default function JsonFormatter() {
           <option value={4}>4 spaces</option>
           <option value={0}>Tabs</option>
         </select>
+      </div>
+      <div className="field">
+        <label>
+          <input type="checkbox" checked={sortKeys} onChange={(e) => setSortKeys(e.target.checked)} />
+          {' '}Sort keys A to Z (every object, at every level; array order unchanged)
+        </label>
       </div>
       {status && <div className={`message ${status.ok ? 'ok' : 'err'}`}>{status.msg}</div>}
       <div className="btn-row">

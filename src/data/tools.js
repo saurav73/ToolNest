@@ -51,7 +51,7 @@ export const TOOLS = [
     path: '/json-formatter',
     name: 'JSON Formatter',
     category: 'Developer Tools',
-    blurb: 'Format, minify and validate JSON with clear error messages that point at the exact problem.',
+    blurb: 'Format, minify and validate JSON with clear error messages that point at the exact problem, plus optional A to Z key sorting for clean diffs.',
     keywords: 'json format, json validator, json beautifier, minify json',
   },
   {
