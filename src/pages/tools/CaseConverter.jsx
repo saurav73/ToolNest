@@ -10,7 +10,24 @@ const MODES = [
   { id: 'capitalized', label: 'Capitalize Each Word' },
   { id: 'alternating', label: 'aLtErNaTiNg' },
   { id: 'inverse', label: 'iNVERSE' },
+  { id: 'camel', label: 'camelCase' },
+  { id: 'pascal', label: 'PascalCase' },
+  { id: 'snake', label: 'snake_case' },
+  { id: 'kebab', label: 'kebab-case' },
+  { id: 'constant', label: 'CONSTANT_CASE' },
 ];
+
+/** Split a phrase into words on spaces, underscores, hyphens and camelCase boundaries. */
+function splitWords(text) {
+  const spaced = text
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  return spaced.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+}
+
+function cap(word) {
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+}
 
 function convert(text, mode) {
   switch (mode) {
@@ -34,6 +51,18 @@ function convert(text, mode) {
     }
     case 'inverse':
       return [...text].map((ch) => (ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase())).join('');
+    case 'camel': {
+      const words = splitWords(text).map((w) => w.toLowerCase());
+      return words.map((w, i) => (i === 0 ? w : cap(w))).join('');
+    }
+    case 'pascal':
+      return splitWords(text).map(cap).join('');
+    case 'snake':
+      return splitWords(text).map((w) => w.toLowerCase()).join('_');
+    case 'kebab':
+      return splitWords(text).map((w) => w.toLowerCase()).join('-');
+    case 'constant':
+      return splitWords(text).map((w) => w.toUpperCase()).join('_');
     default: return text;
   }
 }
@@ -52,8 +81,12 @@ const FAQS = [
     a: 'Alternating case (aLtErNaTiNg) is mostly playful and appears in memes and social posts. Inverse case flips every letter from its current state and is handy when text arrives with the caps lock key stuck in the wrong position.',
   },
   {
+    q: 'What are the code styles for?',
+    a: 'camelCase is the standard for variable and function names in JavaScript, PascalCase for class and component names, snake_case for Python variables and database columns, kebab-case for CSS classes and URL slugs, and CONSTANT_CASE for constants. The converter splits your phrase on spaces, underscores, hyphens and camelCase boundaries, then rejoins the words in the style you pick.',
+  },
+  {
     q: 'Does the converter change anything besides letters?',
-    a: 'No. Numbers, punctuation, spacing and line breaks are left exactly as they are. Only the case of letters changes.',
+    a: 'For the prose styles, no. Numbers, punctuation, spacing and line breaks are left exactly as they are and only the case of letters changes. The code styles are the exception: they rejoin words with underscores, hyphens or nothing at all, so separators in the input do not survive.',
   },
 ];
 
@@ -62,10 +95,11 @@ const CONTENT = (
     <h2>Fix text case in one click</h2>
     <p>
       Typed a whole paragraph with caps lock on? Pasted a headline that needs to be a
-      normal sentence? This converter rewrites your text in seven styles: UPPERCASE
+      normal sentence? This converter rewrites your text in twelve styles: UPPERCASE
       for labels and warnings, lowercase for cleaning up shouted text, Title Case for
-      headlines, Sentence case for body text, plus playful alternating and inverse
-      modes. Pick a style, and the converted text appears instantly, ready to copy.
+      headlines, Sentence case for body text, playful alternating and inverse
+      modes, plus five code styles: camelCase, PascalCase, snake_case, kebab-case
+      and CONSTANT_CASE. Pick a style, and the converted text appears instantly, ready to copy.
     </p>
     <h2>Which case should you choose?</h2>
     <ul>
@@ -73,6 +107,7 @@ const CONTENT = (
       <li><strong>Emails and articles:</strong> Sentence case.</li>
       <li><strong>Buttons, labels and short calls to action:</strong> UPPERCASE, used sparingly.</li>
       <li><strong>Code-adjacent text and usernames:</strong> lowercase.</li>
+      <li><strong>Variable, class and constant names:</strong> camelCase, PascalCase or CONSTANT_CASE, and snake_case or kebab-case for Python, databases, CSS and URLs.</li>
     </ul>
     <h2>How the converter works under the hood</h2>
     <p>
@@ -101,6 +136,10 @@ const CONTENT = (
       once you add the closing punctuation back. Inverse case gives "The quick BROWN fox JUMPS over THE LAZY DOG", preserving
       the original pattern in mirror form. Seeing all five results from one input
       shows why choosing the right mode matters more than retyping by hand.
+      The code styles turn the same phrase into identifiers: "user account settings"
+      becomes userAccountSettings in camelCase, UserAccountSettings in PascalCase,
+      user_account_settings in snake_case, user-account-settings in kebab-case and
+      USER_ACCOUNT_SETTINGS in CONSTANT_CASE.
     </p>
     <h2>Tips for getting better results</h2>
     <ul>
@@ -129,9 +168,9 @@ export default function CaseConverter() {
       slug="case-converter"
       path="/case-converter"
       title="Case Converter: Uppercase, Lowercase, Title Case | ToolNest"
-      description="Convert text to UPPERCASE, lowercase, Title Case, Sentence case, alternating or inverse case instantly. Free, private, one click."
+      description="Convert text to UPPERCASE, lowercase, Title Case or code styles like camelCase, snake_case and kebab-case. Free, private, one click."
       h1="Case Converter"
-      intro="Convert any text to UPPERCASE, lowercase, Title Case, Sentence case, alternating case or inverse case. Pick a style and copy the result."
+      intro="Convert any text to UPPERCASE, lowercase, Title Case, Sentence case, alternating case, inverse case or a code style like camelCase and snake_case. Pick a style and copy the result."
       faqs={FAQS}
       content={CONTENT}
     >

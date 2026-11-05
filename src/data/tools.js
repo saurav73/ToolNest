@@ -24,8 +24,8 @@ export const TOOLS = [
     path: '/case-converter',
     name: 'Case Converter',
     category: 'Text Tools',
-    blurb: 'Convert text to UPPERCASE, lowercase, Title Case, Sentence case, alternating case and more.',
-    keywords: 'uppercase, lowercase, title case, change case',
+    blurb: 'Convert text to UPPERCASE, lowercase, Title Case, Sentence case, alternating case and code styles like camelCase, snake_case and kebab-case.',
+    keywords: 'uppercase, lowercase, title case, change case, camelcase, snake case, kebab case, pascal case',
   },
   {
     slug: 'password-generator',
