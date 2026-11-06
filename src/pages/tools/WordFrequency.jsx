@@ -18,7 +18,7 @@ const FAQS = [
   },
   {
     q: 'Can I export the results?',
-    a: 'Yes. The Copy table button copies the full table as tab-separated rows you can paste straight into a spreadsheet, where each word, count and percentage lands in its own column.',
+    a: 'Yes. The Copy table button copies the visible rows as tab-separated text you can paste straight into a spreadsheet, where each word, count and percentage lands in its own column. The Download CSV button saves the full filtered table as a .csv file, including rows below the visible top 25, 50 or 100 limit, and it opens directly in Excel, Google Sheets or Numbers.',
   },
 ];
 
@@ -78,7 +78,7 @@ const CONTENT = (
     <ul>
       <li><strong>Analyze section by section:</strong> running a whole book chapter at once hides local habits, while pasting one section at a time shows exactly where a pet word clusters.</li>
       <li><strong>Search for word families:</strong> use the search box to group a word with its other forms, such as "write", "writes" and "writing", because the table counts each form as its own row.</li>
-      <li><strong>Compare drafts in a spreadsheet:</strong> copy the table before and after editing into a spreadsheet and place the versions side by side to see whether you really reduced the words you were overusing.</li>
+      <li><strong>Compare drafts in a spreadsheet:</strong> download the table as CSV before and after editing and place the versions side by side to see whether you really reduced the words you were overusing.</li>
       <li><strong>Turn common words back on for style checks:</strong> with stopwords visible you can spot habits like overusing "very" or starting sentences with "and", which the filtered view is designed to hide.</li>
     </ul>
     <h2>Common mistakes to avoid</h2>
@@ -121,14 +121,26 @@ export default function WordFrequency() {
 
   const tableText = data.shown.map((r) => `${r.word}\t${r.count}\t${r.pct.toFixed(1)}%`).join('\n');
 
+  const downloadCsv = () => {
+    const escapeCsv = (v) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const lines = ['Word,Count,Share of text (%)', ...data.rows.map((r) => `${escapeCsv(r.word)},${r.count},${r.pct.toFixed(1)}`)];
+    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'word-frequency.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <ToolLayout
       slug="word-frequency-counter"
       path="/word-frequency-counter"
       title="Word Frequency Counter: Count Every Word | ToolNest"
-      description="Count how often each word appears in your text with a sorted, searchable frequency table. Hide common words, copy results to a spreadsheet."
+      description="Count how often each word appears in your text with a sorted, searchable frequency table. Hide common words, download the results as CSV."
       h1="Word Frequency Counter"
-      intro="Count every word in your text and see the results in a sorted frequency table with counts and percentages. Filter, search and copy the table to a spreadsheet."
+      intro="Count every word in your text and see the results in a sorted frequency table with counts and percentages. Filter, search, copy the table or download it as CSV."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -189,6 +201,7 @@ export default function WordFrequency() {
 
       <div className="btn-row">
         <CopyButton text={tableText} label="Copy table" />
+        <button type="button" className="btn secondary" onClick={downloadCsv} disabled={data.rows.length === 0}>Download CSV</button>
         <button type="button" className="btn ghost" onClick={() => setText('')} disabled={!text}>Clear text</button>
       </div>
     </ToolLayout>

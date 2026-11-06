@@ -99,8 +99,8 @@ export const TOOLS = [
     path: '/word-frequency-counter',
     name: 'Word Frequency Counter',
     category: 'Text Tools',
-    blurb: 'Count how often every word appears in your text and browse the results in a sorted table.',
-    keywords: 'word frequency, word usage count, text analysis',
+    blurb: 'Count how often every word appears in your text and browse the results in a sorted table, then download the table as CSV for your spreadsheet.',
+    keywords: 'word frequency, word usage count, text analysis, export word frequency csv',
   },
   {
     slug: 'text-to-speech',
