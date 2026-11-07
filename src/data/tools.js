@@ -8,8 +8,8 @@ export const TOOLS = [
     path: '/word-counter',
     name: 'Word Counter',
     category: 'Text Tools',
-    blurb: 'Count words, characters and sentences with reading time, readability scores and keyword density for your top terms.',
-    keywords: 'word count, count words, reading time, keyword density, readability score',
+    blurb: 'Count words, characters and sentences with reading time, readability scores and keyword density for your top terms. Upload a .txt file or download the full report.',
+    keywords: 'word count, count words, reading time, keyword density, readability score, upload text file',
   },
   {
     slug: 'character-counter',

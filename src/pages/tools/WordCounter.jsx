@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ToolLayout from '../../components/ToolLayout.jsx';
 import CopyButton from '../../components/CopyButton.jsx';
+import { downloadBlob } from '../../lib/files.js';
 import {
   tokenizeWords, countSentences, countParagraphs, topKeywords, formatDuration,
   totalSyllables, fleschReadingEase, fleschKincaidGrade, readingEaseLabel,
@@ -24,6 +25,14 @@ const FAQS = [
     a: 'Reading ease runs from 0 to 100, where higher means easier to read. Web writing usually lands between 60 and 70, which this counter labels "Standard". The grade level is the US school grade the text reads at: a grade of 8 means an average eighth grader can read it comfortably. Both are estimated from average sentence length and syllables per word using the Flesch formulas.',
   },
   {
+    q: 'Can I upload a text file instead of pasting?',
+    a: 'Yes. Use the Upload .txt file button above the text box to load a plain text file from your device. The file is read in your browser only and never uploaded, and the counts update the moment it loads.',
+  },
+  {
+    q: 'Can I download my word count results?',
+    a: 'Yes. The Download report button saves a plain text file with every count on the page, including reading and speaking time, both readability scores and the full top 10 keyword density table, so you can attach it to an assignment or keep it with a draft.',
+  },
+  {
     q: 'Is my text saved or uploaded anywhere?',
     a: 'No. The counter runs entirely in your browser. Your text is never sent to a server, and your draft is stored only in this browser on your own device so you can resume later.',
   },
@@ -33,14 +42,16 @@ const CONTENT = (
   <>
     <h2>What this word counter does</h2>
     <p>
-      Paste or type any text and this counter instantly reports the details writers
-      actually need: total words, characters with and without spaces, sentences,
-      paragraphs, estimated reading time and speaking time, the average word
-      length, and two readability scores, the Flesch reading ease and the
-      Flesch-Kincaid grade level. Below the counts, the keyword density table
-      shows your 10 most used meaningful words, so you can spot repetition and
-      check that your key terms get the attention they deserve. Your draft is
-      saved automatically in your browser only, so closing the tab never loses it.
+      Paste or type any text, or upload a .txt file, and this counter instantly
+      reports the details writers actually need: total words, characters with and
+      without spaces, sentences, paragraphs, estimated reading time and speaking
+      time, the average word length, and two readability scores, the Flesch
+      reading ease and the Flesch-Kincaid grade level. Below the counts, the
+      keyword density table shows your 10 most used meaningful words, so you can
+      spot repetition and check that your key terms get the attention they deserve.
+      Download the full report as a text file when you need to keep the numbers
+      with a draft. Your draft is saved automatically in your browser only, so
+      closing the tab never loses it.
     </p>
     <h2>Who uses a word counter?</h2>
     <ul>
@@ -150,17 +161,54 @@ export default function WordCounter() {
 
   const summary = `Words: ${stats.words}\nCharacters: ${stats.chars}\nSentences: ${stats.sentences}\nParagraphs: ${stats.paragraphs}\nReading time: ${formatDuration(stats.readingSecs)}\nSpeaking time: ${formatDuration(stats.speakingSecs)}\nReading ease: ${stats.readingEase}${stats.easeLabel ? ` (${stats.easeLabel})` : ''}\nGrade level: ${stats.gradeLevel}`;
 
+  const [uploadError, setUploadError] = useState('');
+
+  const handleUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const loaded = await file.text();
+      setUploadError('');
+      setText(loaded);
+    } catch {
+      setUploadError('That file could not be read. Try a plain .txt file.');
+    }
+  };
+
+  const downloadReport = () => {
+    const lines = ['Word count report', '-------------------', summary];
+    if (stats.keywords.length > 0) {
+      lines.push('', 'Keyword density (top 10)');
+      stats.keywords.forEach((k, i) => {
+        lines.push(`${i + 1}. ${k.word} - ${k.count} (${k.density.toFixed(1)}%)`);
+      });
+    }
+    downloadBlob(new Blob([lines.join('\n')], { type: 'text/plain' }), 'word-count-report.txt');
+  };
+
   return (
     <ToolLayout
       slug="word-counter"
       path="/word-counter"
       title="Free Word Counter + Readability Score Online | ToolNest"
-      description="Count words, sentences and characters free online, with keyword density and readability scores. No sign-up, private in-browser tool."
+      description="Count words, sentences and characters free online, with keyword density and readability scores. Upload a .txt file or download a report."
       h1="Word Counter"
-      intro="Count words online free as you type: characters, sentences, paragraphs, reading and speaking time, readability scores and keyword density. Completely private: your text never leaves your browser."
+      intro="Count words online free as you type, upload a .txt file, or download a full report: characters, sentences, paragraphs, reading and speaking time, readability scores and keyword density. Completely private: your text never leaves your browser."
       faqs={FAQS}
       content={CONTENT}
     >
+      <div className="btn-row" style={{ marginBottom: 12 }}>
+        <label className="btn ghost" htmlFor="word-counter-upload">Upload .txt file</label>
+        <input
+          id="word-counter-upload"
+          type="file"
+          accept=".txt,text/plain"
+          onChange={handleUpload}
+          style={{ display: 'none' }}
+        />
+      </div>
+      {uploadError && <p role="alert" style={{ color: '#b3261e' }}>{uploadError}</p>}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -182,6 +230,7 @@ export default function WordCounter() {
       </div>
       <div className="btn-row">
         <CopyButton text={summary} label="Copy summary" />
+        <button type="button" className="btn secondary" onClick={downloadReport} disabled={!text}>Download report</button>
         <button type="button" className="btn ghost" onClick={() => setText('')} disabled={!text}>Clear text</button>
       </div>
 
