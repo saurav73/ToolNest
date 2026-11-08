@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import ToolLayout from '../../components/ToolLayout.jsx';
+import { tokenizeWords } from '../../lib/text.js';
 
 const PLATFORMS = [
   { name: 'X (Twitter) post', limit: 280 },
@@ -26,6 +27,10 @@ const FAQS = [
     a: 'Yes. Every count updates as you type or paste, and the platform table shows how much room you have left on each channel before you post.',
   },
   {
+    q: 'Does it also count words?',
+    a: 'Yes. The stat grid shows a Words tile next to the character counts, using the same word definition as the Word Counter, so a hyphenated term or a number like 50 counts as one word. For reading time, keyword density and readability scores, use the Word Counter.',
+  },
+  {
     q: 'Is my text uploaded anywhere?',
     a: 'No. Counting happens in your browser only. Nothing you paste is sent to a server or stored.',
   },
@@ -36,8 +41,8 @@ const CONTENT = (
     <h2>Count characters the way each platform counts them</h2>
     <p>
       A character count sounds simple until a form rejects your text for being three
-      characters too long. This counter shows six measurements at once: total
-      characters, characters without spaces, letters, digits, spaces and other
+      characters too long. This counter shows seven measurements at once: total
+      characters, characters without spaces, words, letters, digits, spaces and other
       characters such as punctuation. Underneath, the platform table compares your
       text against the limits that matter most, from an X post to an SEO meta
       description, and tells you exactly how many characters you have left.
@@ -105,6 +110,7 @@ export default function CharacterCounter() {
     return {
       total: text.length,
       noSpaces: noSpaces.length,
+      words: tokenizeWords(text).length,
       letters: (text.match(/[A-Za-z]/g) || []).length,
       digits: (text.match(/[0-9]/g) || []).length,
       spaces: (text.match(/ /g) || []).length,
@@ -133,6 +139,7 @@ export default function CharacterCounter() {
       <div className="stat-grid">
         <div className="stat"><div className="num">{stats.total}</div><div className="lbl">Characters</div></div>
         <div className="stat"><div className="num">{stats.noSpaces}</div><div className="lbl">No spaces</div></div>
+        <div className="stat"><div className="num">{stats.words}</div><div className="lbl">Words</div></div>
         <div className="stat"><div className="num">{stats.letters}</div><div className="lbl">Letters</div></div>
         <div className="stat"><div className="num">{stats.digits}</div><div className="lbl">Digits</div></div>
         <div className="stat"><div className="num">{stats.spaces}</div><div className="lbl">Spaces</div></div>

@@ -16,8 +16,8 @@ export const TOOLS = [
     path: '/character-counter',
     name: 'Character Counter',
     category: 'Text Tools',
-    blurb: 'Count characters with and without spaces, plus letters, digits and platform length checks.',
-    keywords: 'character count, letter counter, character limit',
+    blurb: 'Count characters with and without spaces, plus words, letters, digits and platform length checks.',
+    keywords: 'character count, letter counter, character limit, word count',
   },
   {
     slug: 'case-converter',
