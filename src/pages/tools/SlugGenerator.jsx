@@ -2,16 +2,28 @@ import React, { useMemo, useState } from 'react';
 import ToolLayout from '../../components/ToolLayout.jsx';
 import CopyButton from '../../components/CopyButton.jsx';
 
-function slugify(text, { separator, lower }) {
-  let out = text
+function slugify(text, { separator, lower, removeStopwords }) {
+  const cleaned = text
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, separator)
-    .replace(new RegExp(`\\${separator}+`, 'g'), separator)
-    .replace(new RegExp(`^\\${separator}+|\\${separator}+$`, 'g'), '');
+    .replace(/[\u0300-\u036f]/g, '');
+  // Split into words first so the stop word filter can work on whole words.
+  const words = cleaned.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  const kept = removeStopwords
+    ? words.filter((w) => !STOPWORDS.has(w.toLowerCase()))
+    : words;
+  let out = kept.join(separator);
   if (lower) out = out.toLowerCase();
   return out;
 }
+
+// Filler words that add length without meaning in a URL. Only pure filler
+// is listed: words that change meaning, like "under" or "over", stay put.
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'of', 'to', 'in', 'on', 'for', 'with',
+  'by', 'at', 'from', 'as', 'is', 'are', 'was', 'were', 'be', 'been',
+  'it', 'its', 'this', 'that', 'these', 'those', 'but', 'so', 'if',
+  'then', 'than', 'when',
+]);
 
 const FAQS = [
   {
@@ -20,7 +32,11 @@ const FAQS = [
   },
   {
     q: 'What makes a good slug?',
-    a: 'Short, descriptive and keyword-rich, in lowercase, with words separated by hyphens. Leave out filler words like "a" and "the" when the slug gets long, avoid dates unless the content is time-specific, and never change a slug after publishing without setting up a redirect.',
+    a: 'Short, descriptive and keyword-rich, in lowercase, with words separated by hyphens. Leave out filler words like "a" and "the" when the slug gets long: tick the "Remove common words" box above and they are dropped for you. Avoid dates unless the content is time-specific, and never change a slug after publishing without setting up a redirect.',
+  },
+  {
+    q: 'Can I remove filler words automatically?',
+    a: 'Yes. Tick "Remove common words" and the generator drops a, an, the, and, or, of, to, in, on, for, with, by and similar filler words from the slug, while keeping words that change meaning, such as "under" in "under 300 dollars". Numbers and your keywords are always kept.',
   },
   {
     q: 'Hyphens or underscores?',
@@ -38,7 +54,8 @@ const CONTENT = (
     <p>
       Type a headline, product name or phrase and this generator produces the URL
       slug for it: lowercase letters and numbers joined by your choice of separator,
-      with punctuation, accents and extra spaces handled automatically. It mirrors
+      with punctuation, accents and extra spaces handled automatically, and an
+      option to drop filler words like a, an and the. It mirrors
       the rules WordPress and most other content systems use, so the slug you copy
       here is the slug your page will actually get.
     </p>
@@ -54,7 +71,7 @@ const CONTENT = (
     </p>
     <h2>A worked example, step by step</h2>
     <p>
-      Suppose your draft title is Cafe Review: 10 Best Espresso Machines Under 300 Dollars for 2026. With hyphens and lowercase selected, the accent is stripped from the first word, the colon and the exclamation style punctuation disappear, and each gap becomes one hyphen. The result is cafe-review-10-best-espresso-machines-under-300-dollars-for-2026, which is 59 characters long. That is clear, but a little long for sharing. A tighter edit before you generate, such as Best Espresso Machines Under 300 Dollars, gives best-espresso-machines-under-300-dollars at 42 characters, keeping the keyword, the price point and the benefit while dropping the year, which you can update in the article without changing the URL later. Try both versions in the tool and compare length before you publish.
+      Suppose your draft title is Cafe Review: 10 Best Espresso Machines Under 300 Dollars for 2026. With hyphens and lowercase selected, the accent is stripped from the first word, the colon and the exclamation style punctuation disappear, and each gap becomes one hyphen. The result is cafe-review-10-best-espresso-machines-under-300-dollars-for-2026, which is 64 characters long. That is clear, but a little long for sharing. Tick "Remove common words" and the same title becomes cafe-review-10-best-espresso-machines-under-300-dollars-2026 at 60 characters, dropping only the filler word "for". A tighter edit before you generate, such as Best Espresso Machines Under 300 Dollars, gives best-espresso-machines-under-300-dollars at 40 characters, keeping the keyword, the price point and the benefit while dropping the year, which you can update in the article without changing the URL later. Try both versions in the tool and compare length before you publish.
     </p>
     <h2>Practical tips for better slugs</h2>
     <ul>
@@ -69,7 +86,7 @@ const CONTENT = (
       <li><strong>Changing a live slug without a redirect:</strong> every bookmark, backlink and search listing still points at the old address, so an unredirected change creates a 404 page and loses the traffic you already earned.</li>
       <li><strong>Stuffing in every keyword variant:</strong> a slug that repeats the same idea three ways looks spammy to readers and adds length with no benefit. Pick the clearest phrasing once and stop.</li>
       <li><strong>Including dates, prices or stock numbers that will change:</strong> a slug that says 2025, a launch price, or a temporary discount ages badly. Keep changeable details in the page body, not in the permanent address.</li>
-      <li><strong>Leaving in stop words until the slug balloons:</strong> words such as a, and, the and for are harmless in short slugs, but in a long title they waste characters. Generate first, then trim them manually if the result feels bloated.</li>
+      <li><strong>Leaving in stop words until the slug balloons:</strong> words such as a, and, the and for are harmless in short slugs, but in a long title they waste characters. Tick "Remove common words" above and the generator drops them for you instead of leaving the trimming to you.</li>
       <li><strong>Mixing separators and case in one site:</strong> using hyphens on one page, underscores on the next and capitals on a third confuses visitors and can create duplicate looking URLs on case sensitive servers. Set one house style and stick to it.</li>
     </ul>
   </>
@@ -79,17 +96,18 @@ export default function SlugGenerator() {
   const [text, setText] = useState('');
   const [separator, setSeparator] = useState('-');
   const [lower, setLower] = useState(true);
+  const [removeStopwords, setRemoveStopwords] = useState(false);
 
-  const slug = useMemo(() => slugify(text, { separator, lower }), [text, separator, lower]);
+  const slug = useMemo(() => slugify(text, { separator, lower, removeStopwords }), [text, separator, lower, removeStopwords]);
 
   return (
     <ToolLayout
       slug="slug-generator"
       path="/slug-generator"
       title="Slug Generator: Turn Titles into Clean URLs | ToolNest"
-      description="Convert any title into a clean URL slug: lowercase, hyphen separated, accents handled. Perfect for blogs, stores and docs. Free."
+      description="Turn any title into a clean URL slug, with optional stop word removal, hyphen or underscore separators and accents handled. Free."
       h1="Slug Generator"
-      intro="Turn any title or phrase into a clean, URL-friendly slug. Choose hyphens or underscores, keep or drop lowercase, and copy the result."
+      intro="Turn any title or phrase into a clean, URL-friendly slug. Choose hyphens or underscores, keep or drop lowercase, remove common filler words in one click, and copy the result."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -116,6 +134,7 @@ export default function SlugGenerator() {
           <label>Letter case</label>
           <div className="checks">
             <label><input type="checkbox" checked={lower} onChange={(e) => setLower(e.target.checked)} /> Lowercase the slug</label>
+            <label><input type="checkbox" checked={removeStopwords} onChange={(e) => setRemoveStopwords(e.target.checked)} /> Remove common words (a, an, the, and, of, for...)</label>
           </div>
         </div>
       </div>

@@ -83,8 +83,8 @@ export const TOOLS = [
     path: '/slug-generator',
     name: 'Slug Generator',
     category: 'Developer Tools',
-    blurb: 'Turn titles and phrases into clean, URL-friendly slugs ready for blogs and websites.',
-    keywords: 'url slug, slug maker, permalink generator',
+    blurb: 'Turn titles and phrases into clean, URL-friendly slugs ready for blogs and websites, with a one-click option to drop filler words like a, an and the.',
+    keywords: 'url slug, slug maker, permalink generator, remove stop words',
   },
   {
     slug: 'text-reverser',
