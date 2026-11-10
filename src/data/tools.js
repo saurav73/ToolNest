@@ -115,8 +115,8 @@ export const TOOLS = [
     path: '/typing-speed-test',
     name: 'Typing Speed Test',
     category: 'Text Tools',
-    blurb: 'Measure your typing speed in words per minute with a 60 second test and live accuracy score.',
-    keywords: 'typing test, wpm test, typing speed, keyboard speed',
+    blurb: 'Measure your typing speed in words per minute with timed 15 to 120 second tests, 10, 25 or 50 word tests and custom text, plus live WPM, accuracy and personal bests.',
+    keywords: 'typing test, wpm test, typing speed, keyboard speed, 1 minute typing test, typing test custom text',
   },
   {
     slug: 'image-compressor',

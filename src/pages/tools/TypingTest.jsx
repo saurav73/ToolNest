@@ -220,6 +220,10 @@ const FAQS = [
     a: 'Timed tests run for 15, 30, 60 or 120 seconds. Word count tests give you exactly 10, 25 or 50 words and stop the clock when you finish them. For both you can pick common words, sentences and quotes, or numbers, and turn punctuation on or off for the word and sentence tests. With punctuation on, the numbers test also includes decimals and comma-grouped thousands. You can also paste your own text and practise on that instead.',
   },
   {
+    q: 'Can I take a 1 minute typing test?',
+    a: 'Yes. Pick the 60 second timed test and type as far as you can before the clock reaches zero. It is the classic 1 minute typing test, and your score is the same live WPM and accuracy shown on every other mode. Shorter 15 and 30 second tests suit quick checks, and the 120 second test suits a steadier benchmark.',
+  },
+  {
     q: 'What does the consistency score mean?',
     a: 'Consistency measures how steady your pace was. The test samples your typing speed once per second, then compares the standard deviation of those samples with your average speed. A score near 100 means an even rhythm with few bursts and stalls, while a low score means your speed swung a lot. It needs a few seconds of typing before it can be calculated.',
   },
@@ -659,10 +663,10 @@ export default function TypingTest() {
     <ToolLayout
       slug="typing-speed-test"
       path="/typing-speed-test"
-      title="Typing Speed Test: Check Your WPM in 60 Seconds | ToolNest"
-      description="Free typing test: timed and word count modes, live WPM, accuracy, consistency and personal bests. No sign-up needed."
+      title="Typing Speed Test: Check WPM in 15 to 120 Seconds | ToolNest"
+      description="Free typing speed test: 15 to 120 second timed tests, 10, 25 or 50 word tests and custom text, with live WPM and accuracy."
       h1="Typing Speed Test"
-      intro="Choose a timed or word count test, type words, sentences or numbers, and see live WPM and accuracy as you go. The clock starts on your first keystroke."
+      intro="Choose a timed test of 15, 30, 60 or 120 seconds, or a word count test of 10, 25 or 50 words, type words, sentences, numbers or your own text, and see live WPM and accuracy as you go. The clock starts on your first keystroke."
       faqs={FAQS}
       content={CONTENT}
     >
