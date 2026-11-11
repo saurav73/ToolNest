@@ -37,21 +37,26 @@ function makeSentence(wordCount, startClassic) {
   return joined.charAt(0).toUpperCase() + joined.slice(1).replace(/,$/, '') + '.';
 }
 
-function generate(mode, amount, startClassic) {
+function generateBlocks(mode, amount, startClassic) {
   if (mode === 'words') {
     const words = pickWords(amount, startClassic);
     const joined = words.join(' ');
-    return joined.charAt(0).toUpperCase() + joined.slice(1).replace(/,$/, '') + '.';
+    return [joined.charAt(0).toUpperCase() + joined.slice(1).replace(/,$/, '') + '.'];
   }
   if (mode === 'sentences') {
-    return Array.from({ length: amount }, (_, i) =>
-      makeSentence(8 + Math.floor(Math.random() * 9), startClassic && i === 0)).join(' ');
+    return [Array.from({ length: amount }, (_, i) =>
+      makeSentence(8 + Math.floor(Math.random() * 9), startClassic && i === 0)).join(' ')];
   }
   return Array.from({ length: amount }, (_, p) => {
     const sentenceCount = 3 + Math.floor(Math.random() * 3);
     return Array.from({ length: sentenceCount }, (_, i) =>
       makeSentence(8 + Math.floor(Math.random() * 9), startClassic && p === 0 && i === 0)).join(' ');
-  }).join('\n\n');
+  });
+}
+
+function formatBlocks(blocks, format) {
+  if (format === 'html') return blocks.map((b) => `<p>${b}</p>`).join('\n');
+  return blocks.join('\n\n');
 }
 
 const FAQS = [
@@ -68,6 +73,10 @@ const FAQS = [
     a: 'Yes. Lorem ipsum is centuries old and public domain. It is safe in mockups, templates and client presentations, though it should always be replaced with real copy before a design goes live.',
   },
   {
+    q: 'Can I copy lorem ipsum as HTML?',
+    a: 'Yes. Choose HTML output and every paragraph is wrapped in a <p> tag, ready to paste into a template or CMS. In sentences and words mode the whole block is wrapped in a single <p> tag.',
+  },
+  {
     q: 'Should lorem ipsum stay on my finished website?',
     a: 'Never. Search engines and visitors learn nothing from it, and leftover placeholder text is a classic launch mistake. Use it during design, then swap in real content before publishing.',
   },
@@ -78,7 +87,8 @@ const CONTENT = (
     <h2>Placeholder text for designs and mockups</h2>
     <p>
       Generate classic lorem ipsum by the paragraph, sentence or word, with an
-      option to start with the traditional "Lorem ipsum dolor sit amet" opening.
+      option to start with the traditional "Lorem ipsum dolor sit amet" opening,
+      and copy it as plain text or wrapped in HTML paragraph tags.
       Designers use it to test layouts, developers use it to fill templates while
       building, and writers use it to hold space for copy that is still being
       written.
@@ -91,7 +101,7 @@ const CONTENT = (
     </ul>
     <h2>How this generator builds the text</h2>
     <p>
-      The generator works from a fixed bank of classical Latin words taken from the traditional lorem ipsum passage. When you ask for words, it picks a starting point in that bank and walks forward, skipping ahead by a small random step each time so consecutive runs do not look identical. For sentences, it groups those words into chunks of eight to sixteen words, capitalizes the first letter and adds a full stop. For paragraphs, it groups three to five sentences together and separates each paragraph with a blank line. If you tick the classic opening option, the very first words are forced to the familiar Lorem ipsum dolor sit amet opening before the random walk begins. Everything runs locally in your browser, so regenerating is instant and you can click Generate new text repeatedly until the shape of the copy suits your layout.
+      The generator works from a fixed bank of classical Latin words taken from the traditional lorem ipsum passage. When you ask for words, it picks a starting point in that bank and walks forward, skipping ahead by a small random step each time so consecutive runs do not look identical. For sentences, it groups those words into chunks of eight to sixteen words, capitalizes the first letter and adds a full stop. For paragraphs, it groups three to five sentences together and separates each paragraph with a blank line. If you tick the classic opening option, the very first words are forced to the familiar Lorem ipsum dolor sit amet opening before the random walk begins. Choose HTML output and each paragraph is wrapped in a &lt;p&gt; tag instead of separated by blank lines, so you can paste it straight into a template or CMS. Everything runs locally in your browser, so regenerating is instant and you can click Generate new text repeatedly until the shape of the copy suits your layout.
     </p>
     <h2>A worked example for a real layout</h2>
     <p>
@@ -120,11 +130,12 @@ export default function LoremIpsum() {
   const [mode, setMode] = useState('paragraphs');
   const [amount, setAmount] = useState(3);
   const [startClassic, setStartClassic] = useState(true);
+  const [format, setFormat] = useState('plain');
   const [output, setOutput] = useState('');
 
   const regen = useCallback(() => {
-    setOutput(generate(mode, amount, startClassic));
-  }, [mode, amount, startClassic]);
+    setOutput(formatBlocks(generateBlocks(mode, amount, startClassic), format));
+  }, [mode, amount, startClassic, format]);
 
   useEffect(() => { regen(); }, [regen]);
 
@@ -133,9 +144,9 @@ export default function LoremIpsum() {
       slug="lorem-ipsum-generator"
       path="/lorem-ipsum-generator"
       title="Lorem Ipsum Generator: Placeholder Text | ToolNest"
-      description="Generate lorem ipsum placeholder text by paragraph, sentence or word for mockups and layouts. Free, instant, classic Latin text."
+      description="Generate lorem ipsum placeholder text by paragraph, sentence or word, as plain text or HTML, for mockups and layouts. Free and instant."
       h1="Lorem Ipsum Generator"
-      intro="Generate classic lorem ipsum placeholder text by the paragraph, sentence or word, ready to drop into your designs and mockups."
+      intro="Generate classic lorem ipsum placeholder text by the paragraph, sentence or word, as plain text or ready-to-paste HTML, ready to drop into your designs and mockups."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -161,6 +172,13 @@ export default function LoremIpsum() {
             }}
             aria-label="Amount to generate"
           />
+        </div>
+        <div className="field">
+          <label htmlFor="lorem-format">Output format</label>
+          <select id="lorem-format" value={format} onChange={(e) => setFormat(e.target.value)}>
+            <option value="plain">Plain text</option>
+            <option value="html">HTML (p tags)</option>
+          </select>
         </div>
       </div>
       <div className="checks" style={{ marginBottom: 16 }}>

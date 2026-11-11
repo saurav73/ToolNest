@@ -67,8 +67,8 @@ export const TOOLS = [
     path: '/lorem-ipsum-generator',
     name: 'Lorem Ipsum Generator',
     category: 'Generators',
-    blurb: 'Generate placeholder lorem ipsum text by the paragraph, sentence or word for your mockups.',
-    keywords: 'lorem ipsum, placeholder text, dummy text',
+    blurb: 'Generate placeholder lorem ipsum text by the paragraph, sentence or word for your mockups, as plain text or HTML.',
+    keywords: 'lorem ipsum, placeholder text, dummy text, lorem ipsum html',
   },
   {
     slug: 'remove-duplicate-lines',
