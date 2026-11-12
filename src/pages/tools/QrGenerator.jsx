@@ -6,7 +6,19 @@ import { downloadBlob, loadImageFromFile } from '../../lib/files.js';
 const FAQS = [
   {
     q: 'What can a QR code contain?',
-    a: 'Any short text: a website link, WiFi network name and password in the standard format, contact details, a payment address, or a plain message. Phones read the code with the camera and act on the content, opening links in the browser or offering to join a network.',
+    a: 'Any short text: a website link, WiFi network name and password, contact details, a payment address, or a plain message. Phones read the code with the camera and act on the content, opening links in the browser or offering to join a network. Pick a content type above the input and the tool builds the standard format for you, so you never have to type it by hand.',
+  },
+  {
+    q: 'How do I make a WiFi QR code?',
+    a: 'Pick WiFi above, enter the network name (SSID) and password, and choose the security type: WPA/WPA2 for most home and office networks, WEP for older routers, or None for an open network. Tick "Hidden network" if the network does not broadcast its name. Scanning the code offers to join the network straight away, with no password typing.',
+  },
+  {
+    q: 'Can I make a QR code for a contact?',
+    a: 'Yes. Pick Contact above and fill in the name, phone, email, company and website. The tool builds a vCard, the standard contact format, and scanning the code on most phones offers to save the contact straight into the address book. It works well on business cards and email signatures.',
+  },
+  {
+    q: 'How do I make a QR code for email or SMS?',
+    a: 'Pick Email above and enter the address, subject and message, or pick SMS and enter the number and message. Scanning the email code opens the mail app with everything pre-filled, and scanning the SMS code opens a text message ready to send.',
   },
   {
     q: 'Can a QR code have a logo in the middle?',
@@ -30,14 +42,29 @@ const CONTENT = (
   <>
     <h2>Create a QR code in seconds</h2>
     <p>
-      Paste a link or type any text, pick a style, and download your QR code as a
-      PNG or SVG. Alongside the classic black on white code you can use solid
-      colors, gradients (including an Instagram gradient), rounded or dotted
-      modules, shaped corner eyes, and a center image: upload your own logo or
-      pick one of the built in pictures. QR codes bridge print and the web:
-      menus, posters, business cards, product packaging and event signs all use
-      them to send people to a page with one camera point. There are no
-      watermarks, no sign-up and no download limits.
+      Pick a content type, fill in the details, and download your QR code as a
+      PNG or SVG. Alongside links and plain text you can build a WiFi code
+      that joins a network in one scan, a contact card that saves straight to
+      the phone, a pre-filled email or SMS, or a one-tap phone call. Then style
+      the code with solid colors, gradients (including an Instagram gradient),
+      rounded or dotted modules, shaped corner eyes, and a center image: upload
+      your own logo or pick one of the built in pictures. QR codes bridge print
+      and the web: menus, posters, business cards, product packaging and event
+      signs all use them to send people to a page with one camera point. There
+      are no watermarks, no sign-up and no download limits.
+    </p>
+    <h2>WiFi, contact and message codes</h2>
+    <p>
+      The content types use the standard formats phones expect, so a scan does
+      the right thing without extra steps. A WiFi code carries the network name,
+      password and security type, and joins the network when scanned, which
+      suits cafes, guest rooms and offices far better than a password on a
+      sticky note. A contact code is a vCard with name, phone, email, company
+      and website, ready to save to the address book. An email code opens the
+      mail app with the address, subject and message already filled in, an SMS
+      code opens a text message ready to send, and a phone code starts a call
+      to the number. Keep each code to the fields you need: a short payload
+      makes a simpler pattern that scans faster and at smaller sizes.
     </p>
     <h2>Tips for QR codes that scan every time</h2>
     <ul>
@@ -183,6 +210,13 @@ function luminance(hex) {
 
 export default function QrGenerator() {
   const [text, setText] = useState('');
+  const [mode, setMode] = useState('text'); // text | wifi | vcard | email | sms | phone
+  const [wifi, setWifi] = useState({ ssid: '', password: '', security: 'WPA', hidden: false });
+  const [showWifiPassword, setShowWifiPassword] = useState(false);
+  const [vcard, setVcard] = useState({ firstName: '', lastName: '', phone: '', email: '', org: '', title: '', website: '' });
+  const [email, setEmail] = useState({ to: '', subject: '', body: '' });
+  const [sms, setSms] = useState({ number: '', message: '' });
+  const [phone, setPhone] = useState('');
   const [fg, setFg] = useState('#000000');
   const [bg, setBg] = useState('#ffffff');
   const [gradientId, setGradientId] = useState('');
@@ -210,13 +244,64 @@ export default function QrGenerator() {
     ? presetUrl(PRESET_ART.find((a) => a.id === center.id))
     : center.kind === 'upload' ? center.dataUrl : undefined;
 
+  /* ---------- content-type payloads: the standard formats phones expect ---------- */
+
+  const escapeWifi = (s) => s.replace(/([\\;,:"])/g, '\\$1');
+  const escapeVcard = (s) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
+
+  const wifiPayload = () => {
+    if (!wifi.ssid.trim()) return '';
+    let out = `WIFI:T:${wifi.security};S:${escapeWifi(wifi.ssid.trim())};`;
+    if (wifi.security !== 'nopass' && wifi.password) out += `P:${escapeWifi(wifi.password)};`;
+    if (wifi.hidden) out += 'H:true;';
+    return `${out};`;
+  };
+
+  const vcardPayload = () => {
+    const hasAny = vcard.firstName.trim() || vcard.lastName.trim() || vcard.phone.trim() || vcard.email.trim() || vcard.org.trim() || vcard.website.trim();
+    if (!hasAny) return '';
+    const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
+    lines.push(`N:${escapeVcard(vcard.lastName.trim())};${escapeVcard(vcard.firstName.trim())};;;`);
+    const fn = [vcard.firstName.trim(), vcard.lastName.trim()].filter(Boolean).join(' ');
+    if (fn) lines.push(`FN:${escapeVcard(fn)}`);
+    if (vcard.org.trim()) lines.push(`ORG:${escapeVcard(vcard.org.trim())}`);
+    if (vcard.title.trim()) lines.push(`TITLE:${escapeVcard(vcard.title.trim())}`);
+    if (vcard.phone.trim()) lines.push(`TEL;TYPE=CELL:${escapeVcard(vcard.phone.trim())}`);
+    if (vcard.email.trim()) lines.push(`EMAIL:${escapeVcard(vcard.email.trim())}`);
+    if (vcard.website.trim()) lines.push(`URL:${escapeVcard(vcard.website.trim())}`);
+    lines.push('END:VCARD');
+    return lines.join('\n');
+  };
+
+  const emailPayload = () => {
+    if (!email.to.trim()) return '';
+    const params = [];
+    if (email.subject.trim()) params.push(`subject=${encodeURIComponent(email.subject.trim())}`);
+    if (email.body.trim()) params.push(`body=${encodeURIComponent(email.body.trim())}`);
+    return `mailto:${email.to.trim()}${params.length ? `?${params.join('&')}` : ''}`;
+  };
+
+  const smsPayload = () => {
+    if (!sms.number.trim()) return '';
+    return `SMSTO:${sms.number.trim()}${sms.message.trim() ? `:${sms.message.trim()}` : ''}`;
+  };
+
+  const phonePayload = () => (phone.trim() ? `tel:${phone.trim()}` : '');
+
+  const payload = mode === 'text' ? text
+    : mode === 'wifi' ? wifiPayload()
+    : mode === 'vcard' ? vcardPayload()
+    : mode === 'email' ? emailPayload()
+    : mode === 'sms' ? smsPayload()
+    : phonePayload();
+
   const buildOptions = (size) => {
     const cornerColor = gradient ? gradient.stops[0] : fg;
     return {
       width: size,
       height: size,
       type: 'canvas',
-      data: text,
+      data: payload,
       margin: Math.max(8, Math.round(size * 0.045)),
       qrOptions: { errorCorrectionLevel: center.kind === 'none' ? 'M' : 'H' },
       dotsOptions: gradient
@@ -247,7 +332,7 @@ export default function QrGenerator() {
     let cancelled = false;
     const container = containerRef.current;
     if (!container) return undefined;
-    if (!text.trim()) {
+    if (!payload.trim()) {
       container.innerHTML = '';
       qrRef.current = null;
       setError('');
@@ -274,7 +359,7 @@ export default function QrGenerator() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, fg, bg, gradientId, dotsType, cornerSqType, cornerDotType, center]);
+  }, [payload, fg, bg, gradientId, dotsType, cornerSqType, cornerDotType, center]);
 
   const onLogoFiles = async (files) => {
     const f = files[0];
@@ -303,7 +388,7 @@ export default function QrGenerator() {
   };
 
   const downloadAs = async (ext, size) => {
-    if (!text.trim() || downloading) return;
+    if (!payload.trim() || downloading) return;
     setDownloading(true);
     try {
       if (!libRef.current) {
@@ -331,28 +416,176 @@ export default function QrGenerator() {
     <ToolLayout
       slug="qr-code-generator"
       path="/qr-code-generator"
-      title="QR Code Generator Free: No Expiration, With Logo | ToolNest"
-      description="Make free QR codes that never expire. Add colors, gradients and a logo, download PNG or SVG. No sign-up, no watermark, private."
+      title="QR Code Generator: WiFi, vCard, Link and More | ToolNest"
+      description="Make free QR codes for links, WiFi, contacts, email and SMS, with colors, gradients and a logo. Download PNG or SVG. No sign-up."
       h1="QR Code Generator"
-      intro="Turn any link or text into a QR code, style it with colors, gradients, shapes and a center logo, and download it as PNG or SVG. The codes never expire, because your data is encoded directly into the pattern rather than stored on a server, and there is no watermark and no sign-up."
+      intro="Turn a link, WiFi network, contact card, email or text message into a QR code, style it with colors, gradients, shapes and a center logo, and download it as PNG or SVG. The codes never expire, because your data is encoded directly into the pattern rather than stored on a server, and there is no watermark and no sign-up."
       faqs={FAQS}
       content={CONTENT}
     >
-      <div className="field">
-        <label htmlFor="qr-input">Link or text for your QR code</label>
-        <input
-          id="qr-input"
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. https://your-website.com or any text"
-          autoFocus
-        />
+      <h2 className="tool-subhead">What should the code do?</h2>
+      <div className="preset-row" role="group" aria-label="QR code content type">
+        {[
+          { id: 'text', name: 'Link or text' },
+          { id: 'wifi', name: 'WiFi' },
+          { id: 'vcard', name: 'Contact' },
+          { id: 'email', name: 'Email' },
+          { id: 'sms', name: 'SMS' },
+          { id: 'phone', name: 'Phone' },
+        ].map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            className={`preset-chip${mode === m.id ? ' active' : ''}`}
+            onClick={() => setMode(m.id)}
+          >
+            {m.name}
+          </button>
+        ))}
       </div>
+
+      {mode === 'text' && (
+        <div className="field">
+          <label htmlFor="qr-input">Link or text for your QR code</label>
+          <input
+            id="qr-input"
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. https://your-website.com or any text"
+            autoFocus
+          />
+        </div>
+      )}
+
+      {mode === 'wifi' && (
+        <>
+          <div className="field">
+            <label htmlFor="qr-wifi-ssid">Network name (SSID)</label>
+            <input
+              id="qr-wifi-ssid"
+              type="text"
+              value={wifi.ssid}
+              onChange={(e) => setWifi({ ...wifi, ssid: e.target.value })}
+              placeholder="e.g. CafeGuestWiFi"
+              autoFocus
+            />
+          </div>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="qr-wifi-pass">WiFi password</label>
+              <input
+                id="qr-wifi-pass"
+                type={showWifiPassword ? 'text' : 'password'}
+                value={wifi.password}
+                onChange={(e) => setWifi({ ...wifi, password: e.target.value })}
+                placeholder="Network password"
+                autoComplete="off"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="qr-wifi-sec">Security</label>
+              <select id="qr-wifi-sec" value={wifi.security} onChange={(e) => setWifi({ ...wifi, security: e.target.value })}>
+                <option value="WPA">WPA / WPA2</option>
+                <option value="WEP">WEP</option>
+                <option value="nopass">None (open network)</option>
+              </select>
+            </div>
+          </div>
+          <div className="checks">
+            <label><input type="checkbox" checked={showWifiPassword} onChange={(e) => setShowWifiPassword(e.target.checked)} /> Show password</label>
+            <label><input type="checkbox" checked={wifi.hidden} onChange={(e) => setWifi({ ...wifi, hidden: e.target.checked })} /> Hidden network (does not broadcast its name)</label>
+          </div>
+        </>
+      )}
+
+      {mode === 'vcard' && (
+        <>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="qr-vc-first">First name</label>
+              <input id="qr-vc-first" type="text" value={vcard.firstName} onChange={(e) => setVcard({ ...vcard, firstName: e.target.value })} placeholder="e.g. Maya" autoFocus />
+            </div>
+            <div className="field">
+              <label htmlFor="qr-vc-last">Last name</label>
+              <input id="qr-vc-last" type="text" value={vcard.lastName} onChange={(e) => setVcard({ ...vcard, lastName: e.target.value })} placeholder="e.g. Sharma" />
+            </div>
+          </div>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="qr-vc-phone">Phone</label>
+              <input id="qr-vc-phone" type="tel" value={vcard.phone} onChange={(e) => setVcard({ ...vcard, phone: e.target.value })} placeholder="+977 98XXXXXXXX" />
+            </div>
+            <div className="field">
+              <label htmlFor="qr-vc-email">Email</label>
+              <input id="qr-vc-email" type="email" value={vcard.email} onChange={(e) => setVcard({ ...vcard, email: e.target.value })} placeholder="name@example.com" />
+            </div>
+          </div>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="qr-vc-org">Company</label>
+              <input id="qr-vc-org" type="text" value={vcard.org} onChange={(e) => setVcard({ ...vcard, org: e.target.value })} placeholder="Company or organization" />
+            </div>
+            <div className="field">
+              <label htmlFor="qr-vc-title">Job title</label>
+              <input id="qr-vc-title" type="text" value={vcard.title} onChange={(e) => setVcard({ ...vcard, title: e.target.value })} placeholder="e.g. Cafe Owner" />
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="qr-vc-web">Website</label>
+            <input id="qr-vc-web" type="text" value={vcard.website} onChange={(e) => setVcard({ ...vcard, website: e.target.value })} placeholder="https://your-website.com" />
+          </div>
+        </>
+      )}
+
+      {mode === 'email' && (
+        <>
+          <div className="field">
+            <label htmlFor="qr-email-to">Email address</label>
+            <input id="qr-email-to" type="email" value={email.to} onChange={(e) => setEmail({ ...email, to: e.target.value })} placeholder="name@example.com" autoFocus />
+          </div>
+          <div className="field">
+            <label htmlFor="qr-email-subject">Subject</label>
+            <input id="qr-email-subject" type="text" value={email.subject} onChange={(e) => setEmail({ ...email, subject: e.target.value })} placeholder="e.g. Table booking" />
+          </div>
+          <div className="field">
+            <label htmlFor="qr-email-body">Message</label>
+            <textarea id="qr-email-body" value={email.body} onChange={(e) => setEmail({ ...email, body: e.target.value })} placeholder="The message the email should start with" />
+          </div>
+        </>
+      )}
+
+      {mode === 'sms' && (
+        <>
+          <div className="field">
+            <label htmlFor="qr-sms-number">Phone number</label>
+            <input id="qr-sms-number" type="tel" value={sms.number} onChange={(e) => setSms({ ...sms, number: e.target.value })} placeholder="+977 98XXXXXXXX" autoFocus />
+          </div>
+          <div className="field">
+            <label htmlFor="qr-sms-message">Message</label>
+            <textarea id="qr-sms-message" value={sms.message} onChange={(e) => setSms({ ...sms, message: e.target.value })} placeholder="The text the message should start with" />
+          </div>
+        </>
+      )}
+
+      {mode === 'phone' && (
+        <div className="field">
+          <label htmlFor="qr-phone-number">Phone number</label>
+          <input
+            id="qr-phone-number"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+977 98XXXXXXXX"
+            autoFocus
+          />
+          <p className="hint">Scanning the code starts a call to this number.</p>
+        </div>
+      )}
 
       <div className="qr-stage">
         <div className="qr-canvas" ref={containerRef} aria-label="QR code preview" />
-        {!text.trim() && !error && <p className="hint">Your QR code preview will appear here as soon as you type something. Try a style below to see it change live.</p>}
+        {!payload.trim() && !error && <p className="hint">Your QR code preview will appear here as soon as you type something. Try a style below to see it change live.</p>}
       </div>
 
       {error && <div className="message err">{error}</div>}
@@ -455,15 +688,15 @@ export default function QrGenerator() {
       <h2 className="tool-subhead">Download</h2>
       <div className="btn-row">
         {[512, 1024, 2048].map((s) => (
-          <button key={s} type="button" className="btn" disabled={!text.trim() || downloading} onClick={() => downloadAs('png', s)}>
+          <button key={s} type="button" className="btn" disabled={!payload.trim() || downloading} onClick={() => downloadAs('png', s)}>
             PNG {s}px
           </button>
         ))}
-        <button type="button" className="btn" disabled={!text.trim() || downloading} onClick={() => downloadAs('svg', 1024)}>
+        <button type="button" className="btn" disabled={!payload.trim() || downloading} onClick={() => downloadAs('svg', 1024)}>
           SVG
         </button>
       </div>
-      {!text.trim() && <p className="hint">Type your link or text above to enable downloads.</p>}
+      {!payload.trim() && <p className="hint">Type your link or text above to enable downloads.</p>}
     </ToolLayout>
   );
 }

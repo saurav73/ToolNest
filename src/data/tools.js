@@ -42,8 +42,8 @@ export const TOOLS = [
     path: '/qr-code-generator',
     name: 'QR Code Generator',
     category: 'Generators',
-    blurb: 'Turn any text or link into a QR code and download it as a high-resolution PNG image.',
-    keywords: 'qr code maker, create qr code, qr generator',
+    blurb: 'Turn a link, WiFi network, contact card, email or SMS into a QR code, styled with colors and a logo, and download it as a high-resolution PNG or SVG.',
+    keywords: 'qr code maker, create qr code, qr generator, wifi qr code, vcard qr code, qr code for wifi',
   },
   {
     slug: 'json-formatter',
