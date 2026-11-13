@@ -21,6 +21,10 @@ const FAQS = [
     a: 'Pick Email above and enter the address, subject and message, or pick SMS and enter the number and message. Scanning the email code opens the mail app with everything pre-filled, and scanning the SMS code opens a text message ready to send.',
   },
   {
+    q: 'Can I make many QR codes at once?',
+    a: 'Yes. Scroll to "Make many codes at once", paste one link or text per line, or upload a .csv or .txt file, and generate up to 100 codes in one run. Each code uses the code and background colors picked above. Download them all as one ZIP file, which also includes a manifest that maps each file name to its row, so you can match codes to products, tables or tickets later.',
+  },
+  {
     q: 'Can a QR code have a logo in the middle?',
     a: 'Yes. QR codes carry error correction data, spare information woven into the pattern so the code still reads when part of it is hidden. When you add a center image here, the generator switches automatically to the highest error correction level (H), keeps the image small (about a quarter of the code) and clears the modules behind it, so phones can still scan the code reliably. Always test a logo code with your phone before printing it.',
   },
@@ -65,6 +69,17 @@ const CONTENT = (
       code opens a text message ready to send, and a phone code starts a call
       to the number. Keep each code to the fields you need: a short payload
       makes a simpler pattern that scans faster and at smaller sizes.
+    </p>
+    <h2>Make many codes at once</h2>
+    <p>
+      One code at a time is slow when every table, product or ticket needs its
+      own. Paste a list, one link or text per line, or upload a .csv or .txt
+      file, and the generator makes up to 100 codes in one run, each using the
+      code and background colors picked above. Download them all as a single
+      ZIP file, which also includes a manifest that maps each file name to its
+      row. Rival bulk generators put this behind a paid plan, often $19 a month
+      or more for 500 codes; here it is free, with no sign-up, and every code
+      is drawn on your device, so the list never leaves your browser.
     </p>
     <h2>Tips for QR codes that scan every time</h2>
     <ul>
@@ -226,6 +241,15 @@ export default function QrGenerator() {
   const [center, setCenter] = useState({ kind: 'none' });
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkFormat, setBulkFormat] = useState('png-512'); // png-512 | png-1024 | svg
+  const [bulkItems, setBulkItems] = useState([]); // { content, name, dataUrl, ext, blob }
+  const [bulkWorking, setBulkWorking] = useState('');
+  const [bulkNote, setBulkNote] = useState('');
+  const [bulkZipping, setBulkZipping] = useState(false);
+  const bulkFileRef = useRef(null);
+
+  const bulkLines = bulkText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
   const containerRef = useRef(null);
   const qrRef = useRef(null);
@@ -387,6 +411,114 @@ export default function QrGenerator() {
     }
   };
 
+  /* ---------- bulk mode: one code per line, up to 100, ZIP download ---------- */
+
+  const firstCsvColumn = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('"')) {
+      const m = trimmed.match(/^"((?:[^"]|"")*)"/);
+      if (m) return m[1].replace(/""/g, '"');
+    }
+    return trimmed.split(',')[0].trim().replace(/^"|"$/g, '');
+  };
+
+  const onBulkFile = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      const raw = await f.text();
+      const isCsv = /\.csv$/i.test(f.name);
+      const values = raw.split(/\r?\n/).map((l) => (isCsv ? firstCsvColumn(l) : l.trim())).filter(Boolean);
+      if (!values.length) {
+        setBulkNote('That file had no usable rows. Use one value per line, or a CSV with the content in the first column.');
+        return;
+      }
+      setBulkText(values.slice(0, 100).join('\n'));
+      setBulkItems([]);
+      setBulkNote(values.length > 100
+        ? `Loaded the first 100 rows from ${f.name}. Paste the rest in a second batch.`
+        : `Loaded ${values.length} row${values.length === 1 ? '' : 's'} from ${f.name}.`);
+    } catch (err) {
+      setBulkNote('That file could not be read. Try a plain .csv or .txt file.');
+    }
+    e.target.value = '';
+  };
+
+  const generateBulk = async () => {
+    if (!bulkLines.length || bulkWorking) return;
+    const values = bulkLines.slice(0, 100);
+    const size = bulkFormat === 'png-1024' ? 1024 : 512;
+    setBulkItems([]);
+    setBulkNote('');
+    let QRCode;
+    try {
+      const mod = await import('qrcode');
+      QRCode = mod.default || mod;
+    } catch (e) {
+      setBulkNote('The QR library could not be loaded. Check your connection and try again.');
+      return;
+    }
+    const out = [];
+    let skipped = 0;
+    for (let i = 0; i < values.length; i++) {
+      setBulkWorking(`Generating code ${i + 1} of ${values.length}...`);
+      try {
+        const name = `qr-${String(i + 1).padStart(3, '0')}.${bulkFormat === 'svg' ? 'svg' : 'png'}`;
+        if (bulkFormat === 'svg') {
+          const svg = await QRCode.toString(values[i], {
+            type: 'svg', margin: 2, errorCorrectionLevel: 'M',
+            color: { dark: fg, light: bg },
+          });
+          out.push({
+            content: values[i], name, ext: 'svg',
+            dataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+            blob: new Blob([svg], { type: 'image/svg+xml' }),
+          });
+        } else {
+          const dataUrl = await QRCode.toDataURL(values[i], {
+            width: size, margin: 2, errorCorrectionLevel: 'M',
+            color: { dark: fg, light: bg },
+          });
+          out.push({
+            content: values[i], name, ext: 'png', dataUrl,
+            blob: await (await fetch(dataUrl)).blob(),
+          });
+        }
+      } catch (e) {
+        skipped += 1;
+      }
+      if (i % 10 === 9) await new Promise((r) => setTimeout(r, 0));
+    }
+    setBulkItems(out);
+    setBulkWorking('');
+    setBulkNote(`Made ${out.length} code${out.length === 1 ? '' : 's'}${bulkLines.length > 100 ? ' from the first 100 lines' : ''}${skipped ? `, ${skipped} line${skipped === 1 ? '' : 's'} skipped because the text was too long for a QR code` : ''}.`);
+  };
+
+  const downloadBulkZip = async () => {
+    if (!bulkItems.length || bulkZipping) return;
+    setBulkZipping(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const manifest = ['File,Content'];
+      bulkItems.forEach((item) => {
+        if (item.ext === 'svg') {
+          zip.file(item.name, decodeURIComponent(item.dataUrl.split(',')[1]));
+        } else {
+          zip.file(item.name, item.dataUrl.split(',')[1], { base64: true });
+        }
+        manifest.push(`"${item.name}","${item.content.replace(/"/g, '""')}"`);
+      });
+      zip.file('manifest.csv', manifest.join('\n'));
+      const blob = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(blob, 'qr-codes.zip');
+    } catch (e) {
+      setBulkNote('The ZIP download could not be created. Try again.');
+    }
+    setBulkZipping(false);
+  };
+
   const downloadAs = async (ext, size) => {
     if (!payload.trim() || downloading) return;
     setDownloading(true);
@@ -417,9 +549,9 @@ export default function QrGenerator() {
       slug="qr-code-generator"
       path="/qr-code-generator"
       title="QR Code Generator: WiFi, vCard, Link and More | ToolNest"
-      description="Make free QR codes for links, WiFi, contacts, email and SMS, with colors, gradients and a logo. Download PNG or SVG. No sign-up."
+      description="Make free QR codes for links, WiFi, contacts, email and SMS, or make up to 100 at once from a list. Colors, gradients and a logo. No sign-up."
       h1="QR Code Generator"
-      intro="Turn a link, WiFi network, contact card, email or text message into a QR code, style it with colors, gradients, shapes and a center logo, and download it as PNG or SVG. The codes never expire, because your data is encoded directly into the pattern rather than stored on a server, and there is no watermark and no sign-up."
+      intro="Turn a link, WiFi network, contact card, email or text message into a QR code, style it with colors, gradients, shapes and a center logo, and download it as PNG or SVG. The codes never expire, because your data is encoded directly into the pattern rather than stored on a server, and there is no watermark and no sign-up. Need a whole set? Paste a list below and make up to 100 codes at once, then download them as one ZIP."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -697,6 +829,68 @@ export default function QrGenerator() {
         </button>
       </div>
       {!payload.trim() && <p className="hint">Type your link or text above to enable downloads.</p>}
+
+      <h2 className="tool-subhead">Make many codes at once</h2>
+      <p className="hint">
+        Paste one link or text per line, or upload a .csv or .txt file, and get a QR code for each row, up to 100 at a time.
+        Bulk codes use the code and background colors picked above. Download them all as one ZIP, which also includes a manifest
+        that maps each file name to its row.
+      </p>
+      <div className="field">
+        <label htmlFor="qr-bulk-input">One link or text per line</label>
+        <textarea
+          id="qr-bulk-input"
+          rows={6}
+          value={bulkText}
+          onChange={(e) => { setBulkText(e.target.value); setBulkItems([]); setBulkNote(''); }}
+          placeholder={'https://your-website.com/menu\nhttps://your-website.com/contact\nhttps://your-website.com/book-a-table'}
+        />
+      </div>
+      <input
+        ref={bulkFileRef}
+        type="file"
+        accept=".csv,.txt,text/csv,text/plain"
+        style={{ display: 'none' }}
+        onChange={onBulkFile}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+      <div className="row">
+        <div className="field">
+          <label htmlFor="qr-bulk-format">Bulk format</label>
+          <select id="qr-bulk-format" value={bulkFormat} onChange={(e) => setBulkFormat(e.target.value)}>
+            <option value="png-512">PNG 512px</option>
+            <option value="png-1024">PNG 1024px</option>
+            <option value="svg">SVG</option>
+          </select>
+        </div>
+      </div>
+      <div className="btn-row">
+        <button type="button" className="btn secondary" onClick={() => bulkFileRef.current && bulkFileRef.current.click()}>
+          Upload a .csv or .txt file
+        </button>
+        <button type="button" className="btn" disabled={!bulkLines.length || !!bulkWorking} onClick={generateBulk}>
+          {bulkWorking || `Generate ${bulkLines.length} code${bulkLines.length === 1 ? '' : 's'}`}
+        </button>
+        {bulkItems.length > 1 && (
+          <button type="button" className="btn secondary" disabled={bulkZipping} onClick={downloadBulkZip}>
+            {bulkZipping ? 'Building ZIP...' : `Download all as ZIP (${bulkItems.length} codes)`}
+          </button>
+        )}
+      </div>
+      {bulkNote && <p className="hint">{bulkNote}</p>}
+      {bulkItems.length > 0 && (
+        <div className="file-results">
+          {bulkItems.map((item) => (
+            <div className="file-row" key={item.name}>
+              <img src={item.dataUrl} alt="" className="file-thumb" />
+              <span className="file-name">{item.name}</span>
+              <span className="file-size">{item.content.length > 60 ? `${item.content.slice(0, 60)}...` : item.content}</span>
+              <button type="button" className="btn secondary" onClick={() => downloadBlob(item.blob, item.name)}>Download</button>
+            </div>
+          ))}
+        </div>
+      )}
     </ToolLayout>
   );
 }
