@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
 import ToolLayout from '../../components/ToolLayout.jsx';
 import CopyButton from '../../components/CopyButton.jsx';
+import { downloadBlob, formatBytes } from '../../lib/files.js';
+
+/* Files larger than this are refused so a huge Base64 string does not
+   freeze the tab; 10 MB is the same cap rival file encoders use. */
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 const FAQS = [
   {
     q: 'What is Base64 used for?',
     a: 'Base64 turns binary data or text into a safe string of letters, digits, plus and slash characters. It is used to embed images in HTML and CSS, carry data in JSON, put attachments in email, and pass values in URLs and tokens where raw bytes would break things.',
+  },
+  {
+    q: 'Can I encode a file to Base64?',
+    a: 'Yes. Use the file picker below the input box to choose any file up to 10 MB, an image, PDF, ZIP or anything else, and its Base64 string appears in the result box, ready to copy into a data URI, JSON payload or email attachment. The file is read in your browser only and never uploaded.',
+  },
+  {
+    q: 'Can I decode Base64 back into a file?',
+    a: 'Yes. Paste the Base64 string, type the file name you want in the "Save decoded file as" box, and press "Download decoded file". The original bytes are rebuilt in your browser and saved to your device, which is how you recover an image, PDF or other file that was sent to you as Base64 text.',
   },
   {
     q: 'Is Base64 encryption?',
@@ -28,8 +41,19 @@ const CONTENT = (
       Base64 shows up everywhere in development work: data URIs, API tokens, email
       attachments, JWT parts and configuration values. This tool converts both ways
       with full Unicode support, so text with accents or emoji survives the round
-      trip. Decoding validates the input and explains the problem if the string is
-      not valid Base64.
+      trip, and it also handles files: upload any file up to 10 MB to encode it,
+      or paste Base64 and download the original file back. Decoding validates the
+      input and explains the problem if the string is not valid Base64.
+    </p>
+    <h2>Files in, files out</h2>
+    <p>
+      The most common file job is turning an image or document into a Base64
+      string for embedding: pick the file below the input box and the encoded
+      string lands in the result box, ready to paste after a data URI prefix
+      such as data:image/png;base64,. Going the other way, paste a Base64 string
+      you received, name the file you want, and download it rebuilt byte for
+      byte. Both directions run entirely in your browser, so a private file
+      never leaves your device.
     </p>
     <h2>A quick example</h2>
     <p>
@@ -93,8 +117,7 @@ const CONTENT = (
   </>
 );
 
-function encodeBase64(text) {
-  const bytes = new TextEncoder().encode(text);
+function encodeBytes(bytes) {
   let binary = '';
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) {
@@ -103,20 +126,29 @@ function encodeBase64(text) {
   return btoa(binary);
 }
 
-function decodeBase64(b64) {
+function encodeBase64(text) {
+  return encodeBytes(new TextEncoder().encode(text));
+}
+
+function decodeBytes(b64) {
   const clean = b64.replace(/\s/g, '');
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean) || clean.length % 4 === 1) {
     throw new Error('That does not look like valid Base64. Check for missing or extra characters.');
   }
   const binary = atob(clean);
-  const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
-  return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  return Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+}
+
+function decodeBase64(b64) {
+  return new TextDecoder('utf-8', { fatal: true }).decode(decodeBytes(b64));
 }
 
 export default function Base64Tool() {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
   const [status, setStatus] = useState(null);
+  const [fileInfo, setFileInfo] = useState(null);
+  const [decodeName, setDecodeName] = useState('decoded.bin');
 
   const run = (encode) => {
     if (!input) {
@@ -132,14 +164,48 @@ export default function Base64Tool() {
     }
   };
 
+  const onFile = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) {
+      setStatus({ ok: false, msg: `That file is ${formatBytes(file.size)}. Files up to 10 MB can be encoded here; larger files are best handled with a command line encoder.` });
+      return;
+    }
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      setOutput(encodeBytes(bytes));
+      setFileInfo({ name: file.name, size: file.size });
+      setStatus({ ok: true, msg: `Encoded ${file.name} (${formatBytes(file.size)}). The Base64 string is in the result box.` });
+    } catch (err) {
+      setOutput('');
+      setStatus({ ok: false, msg: 'That file could not be read. Try again or pick a different file.' });
+    }
+  };
+
+  const downloadDecoded = () => {
+    if (!input) {
+      setStatus({ ok: false, msg: 'Paste a Base64 string first.' });
+      return;
+    }
+    try {
+      const bytes = decodeBytes(input);
+      const name = (decodeName || '').trim() || 'decoded.bin';
+      downloadBlob(new Blob([bytes]), name);
+      setStatus({ ok: true, msg: `Decoded file saved as ${name} (${formatBytes(bytes.length)}).` });
+    } catch (e) {
+      setStatus({ ok: false, msg: e.message || 'Conversion failed.' });
+    }
+  };
+
   return (
     <ToolLayout
       slug="base64-encoder-decoder"
       path="/base64-encoder-decoder"
-      title="Base64 Encoder and Decoder: Convert Text Online | ToolNest"
-      description="Encode text to Base64 or decode Base64 back to text, with full Unicode and emoji support. Free, private, runs in your browser."
+      title="Base64 Encoder and Decoder: Files and Text | ToolNest"
+      description="Encode files or text to Base64 and decode Base64 back to text or a file, with full Unicode support. Free and private."
       h1="Base64 Encoder / Decoder"
-      intro="Convert text to Base64, or decode a Base64 string back to readable text. Handles accents, non-Latin scripts and emoji correctly."
+      intro="Convert text to Base64, or decode a Base64 string back to readable text. You can also encode any file up to 10 MB, or download a decoded file."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -153,6 +219,13 @@ export default function Base64Tool() {
           aria-label="Base64 input"
           autoFocus
         />
+      </div>
+      <div className="field">
+        <label htmlFor="b64-file">Or upload a file to encode</label>
+        <input id="b64-file" type="file" onChange={onFile} />
+        {fileInfo && (
+          <p className="hint">Encoded {fileInfo.name} ({formatBytes(fileInfo.size)}). The Base64 string is in the result box below.</p>
+        )}
       </div>
       <div className="field">
         <label htmlFor="b64-out">Result</label>
@@ -170,7 +243,21 @@ export default function Base64Tool() {
         <button type="button" className="btn" onClick={() => run(true)}>Encode to Base64</button>
         <button type="button" className="btn secondary" onClick={() => run(false)}>Decode from Base64</button>
         <CopyButton text={output} className="btn secondary" />
-        <button type="button" className="btn ghost" onClick={() => { setInput(''); setOutput(''); setStatus(null); }} disabled={!input && !output}>Clear</button>
+        <button type="button" className="btn ghost" onClick={() => { setInput(''); setOutput(''); setStatus(null); setFileInfo(null); }} disabled={!input && !output}>Clear</button>
+      </div>
+      <div className="field">
+        <label htmlFor="b64-filename">Save decoded file as</label>
+        <input
+          id="b64-filename"
+          type="text"
+          value={decodeName}
+          onChange={(e) => setDecodeName(e.target.value)}
+          placeholder="decoded.bin"
+        />
+        <p className="hint">Paste a Base64 string above, name the file, and download the original bytes rebuilt in your browser.</p>
+        <div className="btn-row">
+          <button type="button" className="btn secondary" onClick={downloadDecoded} disabled={!input}>Download decoded file</button>
+        </div>
       </div>
     </ToolLayout>
   );

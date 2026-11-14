@@ -59,8 +59,8 @@ export const TOOLS = [
     path: '/base64-encoder-decoder',
     name: 'Base64 Encoder / Decoder',
     category: 'Developer Tools',
-    blurb: 'Encode text to Base64 or decode Base64 back to readable text, with full Unicode support.',
-    keywords: 'base64 encode, base64 decode, base64 converter',
+    blurb: 'Encode text or any file up to 10 MB to Base64, or decode Base64 back to readable text or a downloadable file, with full Unicode support.',
+    keywords: 'base64 encode, base64 decode, base64 converter, file to base64, base64 file encoder, decode base64 to file',
   },
   {
     slug: 'lorem-ipsum-generator',
