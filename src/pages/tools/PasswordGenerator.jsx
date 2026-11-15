@@ -227,7 +227,7 @@ export default function PasswordGenerator() {
     <ToolLayout
       slug="password-generator"
       path="/password-generator"
-      title="Password Generator: Free Strong Random Passwords | ToolNest"
+      title="Password Generator: Passwords and Passphrases | ToolNest"
       description="Generate strong random passwords or memorable passphrases free. Length up to 64, strength meter, made on your device only."
       h1="Password Generator"
       intro="Generate strong random passwords with the length and characters you want, or switch to passphrase mode for a memorable password built from words. Generation happens on your device using secure randomness, and nothing is uploaded or stored."
