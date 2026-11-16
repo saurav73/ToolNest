@@ -27,6 +27,10 @@ const FAQS = [
     a: 'Minimum and maximum can be any whole numbers (negative ranges work too), and you can generate up to 1,000 numbers at once. The count simply has to fit inside the range when duplicates are off.',
   },
   {
+    q: 'Can I pick a random name from a list?',
+    a: 'Yes. Switch to "Pick from a list", paste one name per line, choose how many winners you need and press Pick winners. Each entry has the same chance, and with repeats off every name can win only once. The list never leaves your browser.',
+  },
+  {
     q: 'Can I use this for a giveaway or raffle?',
     a: 'Yes, for casual draws it is ideal: set the range to your ticket or entry count, generate one number (or as many as you have prizes), and the winner is chosen fairly. For regulated lotteries or high-value prizes, use a certified drawing service so the result is independently auditable.',
   },
@@ -44,6 +48,7 @@ const CONTENT = (
     <h2>Everyday uses</h2>
     <ul>
       <li>Pick giveaway and raffle winners from entry numbers.</li>
+      <li>Pick a winner from a list: paste names, one per line, and draw one or several winners in order.</li>
       <li>Randomize lists, groups and presentation order.</li>
       <li>Generate test data and sample numbers for spreadsheets.</li>
       <li>Roll virtual dice: set the range 1 to 6 and generate as many rolls as you need.</li>
@@ -51,6 +56,9 @@ const CONTENT = (
     <h2>How the generator picks a number</h2>
     <p>
       Under the hood, the tool asks your browser for cryptographically secure random values using the Web Crypto API, the same system your browser relies on for secure connections. It requests a large random integer, then maps that value into your chosen range in a way that avoids bias. Simple mapping with a remainder can slightly favor low numbers when the range does not divide evenly into the possible values, so the tool calculates a cutoff limit and rejects any random value above that limit, drawing again instead. The result is that every number between your minimum and maximum has an equal chance of appearing. When no duplicates is switched on, each winning value is stored in a set as it is drawn, and any repeat is discarded and redrawn until your list is full or the range is exhausted.
+    </p>
+    <p>
+      List picks use the same secure randomness. The tool runs the first steps of a Fisher-Yates shuffle over your pasted list, so every entry has exactly the same chance of being drawn first, second or third, and with repeats off no entry can win twice.
     </p>
     <h2>A worked example: running a small raffle</h2>
     <p>
@@ -76,12 +84,24 @@ const CONTENT = (
 );
 
 export default function RandomNumber() {
+  const [mode, setMode] = useState('numbers');
   const [min, setMin] = useState(1);
   const [max, setMax] = useState(100);
   const [count, setCount] = useState(5);
   const [unique, setUnique] = useState(false);
   const [results, setResults] = useState([]);
+  const [listText, setListText] = useState('');
+  const [pickCount, setPickCount] = useState(1);
+  const [allowRepeats, setAllowRepeats] = useState(false);
+  const [winners, setWinners] = useState([]);
   const [error, setError] = useState('');
+
+  const switchMode = (m) => {
+    setMode(m);
+    setError('');
+    setResults([]);
+    setWinners([]);
+  };
 
   const generate = () => {
     setError('');
@@ -133,6 +153,37 @@ export default function RandomNumber() {
     setResults(out);
   };
 
+  const pickFromList = () => {
+    setError('');
+    const items = listText.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (items.length === 0) {
+      setError('Paste at least one item, one per line.');
+      return;
+    }
+    const n = Math.floor(Number(pickCount));
+    if (Number.isNaN(n) || n < 1 || n > 1000) {
+      setError('Choose between 1 and 1,000 winners.');
+      return;
+    }
+    if (!allowRepeats && n > items.length) {
+      setError(`Cannot pick ${n} winners from a list of only ${items.length}. Lower the count or allow repeats.`);
+      return;
+    }
+    const pool = [...items];
+    const out = [];
+    if (allowRepeats) {
+      for (let i = 0; i < n; i += 1) out.push(pool[secureRandomInt(pool.length)]);
+    } else {
+      // First n steps of a Fisher-Yates shuffle: uniform, no repeats.
+      for (let i = 0; i < n; i += 1) {
+        const j = i + secureRandomInt(pool.length - i);
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+        out.push(pool[i]);
+      }
+    }
+    setWinners(out);
+  };
+
   const total = results.reduce((a, b) => a + b, 0);
   const sorted = [...results].sort((a, b) => a - b);
 
@@ -140,13 +191,19 @@ export default function RandomNumber() {
     <ToolLayout
       slug="random-number-generator"
       path="/random-number-generator"
-      title="Random Number Generator 1-100: No Repeats Option | ToolNest"
-      description="Generate random numbers in any range with secure randomness. No-duplicates mode for raffles and draws, up to 1,000 numbers at once."
+      title="Random Number Generator and Name Picker | ToolNest"
+      description="Generate random numbers in any range, or pick random winners from a list of names, with secure randomness. Free, private, no sign-up."
       h1="Random Number Generator"
-      intro="Generate random numbers in any range with cryptographically secure randomness. Add the no-duplicates rule for raffles, draws and unique picks."
+      intro="Generate random numbers in any range with cryptographically secure randomness, or pick random winners from a list of names. Add the no-duplicates rule for raffles, draws and unique picks."
       faqs={FAQS}
       content={CONTENT}
     >
+      <div className="btn-row" role="tablist" aria-label="Generator mode">
+        <button type="button" className={mode === 'numbers' ? 'btn' : 'btn secondary'} onClick={() => switchMode('numbers')}>Random numbers</button>
+        <button type="button" className={mode === 'list' ? 'btn' : 'btn secondary'} onClick={() => switchMode('list')}>Pick from a list</button>
+      </div>
+      {mode === 'numbers' && (
+      <>
       <div className="row">
         <div className="field">
           <label htmlFor="rng-min">Minimum</label>
@@ -184,6 +241,41 @@ export default function RandomNumber() {
           </div>
           <p className="hint">Sorted: {sorted.join(', ')}</p>
         </>
+      )}
+      </>
+      )}
+      {mode === 'list' && (
+      <>
+      <div className="field">
+        <label htmlFor="rng-list">Your list (one item per line)</label>
+        <textarea id="rng-list" rows={6} value={listText} onChange={(e) => setListText(e.target.value)} placeholder={'Aisha\nBen\nCarla\nDev'} />
+      </div>
+      <div className="row">
+        <div className="field">
+          <label htmlFor="rng-picks">How many winners</label>
+          <input id="rng-picks" type="text" inputMode="numeric" value={pickCount} onChange={(e) => setPickCount(e.target.value)} />
+        </div>
+      </div>
+      <div className="checks" style={{ marginBottom: 6 }}>
+        <label>
+          <input type="checkbox" checked={allowRepeats} onChange={(e) => setAllowRepeats(e.target.checked)} />
+          Allow the same item to win more than once
+        </label>
+      </div>
+      {error && <div className="message err">{error}</div>}
+      <div className="btn-row">
+        <button type="button" className="btn" onClick={pickFromList}>Pick winners</button>
+        {winners.length > 0 && <CopyButton text={winners.join('\n')} label="Copy winners" className="btn secondary" />}
+      </div>
+      {winners.length > 0 && (
+        <div className="field">
+          <label>Winners in draw order</label>
+          <ol>
+            {winners.map((w, i) => <li key={i}>{w}</li>)}
+          </ol>
+        </div>
+      )}
+      </>
       )}
     </ToolLayout>
   );

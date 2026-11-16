@@ -229,8 +229,8 @@ export const TOOLS = [
     path: '/random-number-generator',
     name: 'Random Number Generator',
     category: 'Generators',
-    blurb: 'Generate random numbers in any range, with a no-duplicates option for draws and raffles.',
-    keywords: 'random number, number picker, raffle numbers, rng',
+    blurb: 'Generate random numbers in any range, with a no-duplicates option for draws and raffles, or pick random winners from a pasted list of names.',
+    keywords: 'random number, number picker, raffle numbers, rng, random name picker, pick random winner, random picker from list',
   },
   {
     slug: 'gmail-dot-generator',
