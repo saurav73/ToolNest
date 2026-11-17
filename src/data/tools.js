@@ -205,8 +205,8 @@ export const TOOLS = [
     path: '/split-pdf',
     name: 'Split PDF',
     category: 'PDF Tools',
-    blurb: 'Extract a page range from a PDF, or save every page as its own file.',
-    keywords: 'split pdf, extract pdf pages, separate pdf',
+    blurb: 'Extract a page range from a PDF, split it into equal chunks of a set number of pages, or save every page as its own file.',
+    keywords: 'split pdf, extract pdf pages, separate pdf, split pdf into parts, split pdf every n pages',
   },
   {
     slug: 'jpg-to-pdf',

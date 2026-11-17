@@ -11,6 +11,10 @@ const FAQS = [
     a: 'Type the first and last page you want, counting from 1. Extracting pages 3 to 5 from a 10-page document creates a new 3-page PDF with the original quality and formatting. Leave the range at the full document and you simply get a copy.',
   },
   {
+    q: 'Can I split a PDF into equal chunks?',
+    a: 'Yes. Set the pages per file, for example 2, and the tool cuts the document into equal parts: a 10-page PDF becomes 5 files of 2 pages each. The parts are packed into a single ZIP download, so you save one file instead of many separate downloads. The last part is shorter when the page count does not divide evenly.',
+  },
+  {
     q: 'What does "every page separately" do?',
     a: 'It creates one single-page PDF per page and downloads them one after another, named with their page numbers. Your browser may ask permission for multiple downloads; allow it and all files will save. For big documents this can mean many files, so the range option is better when you only need a few pages.',
   },
@@ -30,7 +34,8 @@ const CONTENT = (
     <p>
       Sometimes you need one chapter, one signed page or one section of a long
       document, not the whole thing. Add a PDF, choose a page range to extract as a
-      new file, or split every page into its own PDF. Splitting copies pages
+      new file, cut it into equal chunks of a set number of pages, or split every
+      page into its own PDF. Splitting copies pages
       exactly, so text, images and formatting are untouched, and it all happens in
       your browser with no upload.
     </p>
@@ -46,7 +51,7 @@ const CONTENT = (
     </p>
     <h2>How splitting works under the hood</h2>
     <p>
-      When you select a file, your browser reads it into memory and opens it with pdf-lib, an open source JavaScript library that runs on your device. The tool counts the pages, then copies only the pages you asked for into a brand new PDF document. That copy process matters for quality. The text, images, and layout for each selected page are carried across unchanged, so a page that was sharp and searchable in the original stays that way in the extract. Nothing is rendered as a picture and nothing is uploaded. For the every page separately option, the same step is repeated once per page, creating single page files your browser downloads one after another. A 20 page report splits in a moment, while a 300 page scanned book will take longer and use more memory, especially on a phone.
+      When you select a file, your browser reads it into memory and opens it with pdf-lib, an open source JavaScript library that runs on your device. The tool counts the pages, then copies only the pages you asked for into a brand new PDF document. That copy process matters for quality. The text, images, and layout for each selected page are carried across unchanged, so a page that was sharp and searchable in the original stays that way in the extract. Nothing is rendered as a picture and nothing is uploaded. For the every page separately option, the same step is repeated once per page, creating single page files your browser downloads one after another. A 20 page report splits in a moment, while a 300 page scanned book will take longer and use more memory, especially on a phone. For the equal chunks option, the same step is repeated once per chunk and the parts are packed into a single ZIP download, so you save one file instead of many separate downloads.
     </p>
     <h2>Practical tips for accurate splits</h2>
     <ul>
@@ -77,15 +82,18 @@ export default function SplitPdf() {
   const [pageCount, setPageCount] = useState(0);
   const [from, setFrom] = useState(1);
   const [to, setTo] = useState(1);
+  const [chunkSize, setChunkSize] = useState(2);
   const [busy, setBusy] = useState(false);
   const [action, setAction] = useState('');
   const [status, setStatus] = useState(null);
   const [result, setResult] = useState(null);
+  const [chunkResult, setChunkResult] = useState(null);
 
   const onFiles = async (files) => {
     const f = files[0];
     setStatus(null);
     setResult(null);
+    setChunkResult(null);
     setFile(null);
     setPageCount(0);
     try {
@@ -114,6 +122,7 @@ export default function SplitPdf() {
     setAction('range');
     setStatus(null);
     setResult(null);
+    setChunkResult(null);
     try {
       const src = await loadSource();
       const out = await PDFDocument.create();
@@ -143,6 +152,7 @@ export default function SplitPdf() {
     setAction('every');
     setStatus(null);
     setResult(null);
+    setChunkResult(null);
     try {
       const src = await loadSource();
       const base = file.name.replace(/\.pdf$/i, '');
@@ -163,14 +173,57 @@ export default function SplitPdf() {
     setAction('');
   };
 
+  const splitEveryN = async () => {
+    if (!file) return;
+    const n = Math.max(1, Math.min(chunkSize || 2, pageCount));
+    const started = Date.now();
+    setBusy(true);
+    setAction('chunks');
+    setStatus(null);
+    setResult(null);
+    setChunkResult(null);
+    try {
+      const src = await loadSource();
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const base = file.name.replace(/\.pdf$/i, '');
+      let count = 0;
+      for (let s = 0; s < pageCount; s += n) {
+        const e = Math.min(s + n - 1, pageCount - 1);
+        const out = await PDFDocument.create();
+        const indices = [];
+        for (let i = s; i <= e; i += 1) indices.push(i);
+        const pages = await out.copyPages(src, indices);
+        pages.forEach((p) => out.addPage(p));
+        const saved = await out.save();
+        zip.file(`${base}-pages-${s + 1}-to-${e + 1}.pdf`, saved);
+        count += 1;
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      await holdAtLeast(started);
+      setChunkResult({
+        blob,
+        name: 'split-pdfs.zip',
+        count,
+        perFile: n,
+        pages: pageCount,
+        size: blob.size,
+      });
+    } catch (e) {
+      setStatus({ ok: false, msg: 'Splitting failed. The file may be damaged or encrypted.' });
+    }
+    setBusy(false);
+    setAction('');
+  };
+
   return (
     <ToolLayout
       slug="split-pdf"
       path="/split-pdf"
       title="Split PDF: Extract Pages from Any PDF File | ToolNest"
-      description="Split a PDF by extracting a page range, or save every page as its own file. Runs in your browser, no upload, pages copied exactly."
+      description="Split a PDF into equal chunks, extract a page range, or save every page as its own file. Runs in your browser, no upload."
       h1="Split PDF"
-      intro="Extract a page range from a PDF as a new file, or split every page into its own PDF. Your file is processed in your browser and never uploaded."
+      intro="Extract a page range from a PDF as a new file, split it into equal chunks, or split every page into its own PDF. Your file is processed in your browser and never uploaded."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -190,12 +243,16 @@ export default function SplitPdf() {
               <label htmlFor="split-to">To page</label>
               <input id="split-to" type="text" inputMode="numeric" value={to} onChange={(e) => setTo(parseInt(e.target.value, 10) || 1)} />
             </div>
+            <div className="field">
+              <label htmlFor="split-chunk">Pages per file</label>
+              <input id="split-chunk" type="text" inputMode="numeric" value={chunkSize} onChange={(e) => setChunkSize(parseInt(e.target.value, 10) || 2)} />
+            </div>
           </div>
         </>
       )}
 
       {status && <div className={`message ${status.ok ? 'ok' : 'err'}`}>{status.msg}</div>}
-      {busy && <ProcessingNote label={action === 'every' ? 'Splitting every page...' : 'Extracting your pages...'} />}
+      {busy && <ProcessingNote label={action === 'every' ? 'Splitting every page...' : action === 'chunks' ? 'Splitting into equal parts...' : 'Extracting your pages...'} />}
       {result && !busy && (
         <SuccessDownload
           message={`Your pages have been extracted into a new PDF (${result.pages} page${result.pages === 1 ? '' : 's'}, ${formatBytes(result.size)}). Click Download to save it.`}
@@ -203,9 +260,19 @@ export default function SplitPdf() {
           onDownload={() => downloadBlob(result.blob, result.name)}
         />
       )}
+      {chunkResult && !busy && (
+        <SuccessDownload
+          message={`Your PDF has been split into ${chunkResult.count} files of up to ${chunkResult.perFile} pages each (${chunkResult.pages} pages total, ${formatBytes(chunkResult.size)} as a ZIP). Click Download to save them all in one file.`}
+          buttonLabel="Download split PDFs as ZIP"
+          onDownload={() => downloadBlob(chunkResult.blob, chunkResult.name)}
+        />
+      )}
       <div className="btn-row">
         <button type="button" className="btn" onClick={extractRange} disabled={busy || !file}>
           {busy && action === 'range' ? <BusyLabel label="Extracting your pages..." /> : 'Extract page range'}
+        </button>
+        <button type="button" className="btn secondary" onClick={splitEveryN} disabled={busy || !file}>
+          {busy && action === 'chunks' ? <BusyLabel accent label="Splitting into equal parts..." /> : 'Split every N pages'}
         </button>
         <button type="button" className="btn secondary" onClick={splitEvery} disabled={busy || !file}>
           {busy && action === 'every' ? <BusyLabel accent label="Splitting every page..." /> : 'Split every page separately'}
