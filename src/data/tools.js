@@ -33,8 +33,8 @@ export const TOOLS = [
     path: '/password-generator',
     name: 'Password Generator',
     category: 'Generators',
-    blurb: 'Create strong random passwords or memorable passphrases, with a length slider, symbol toggles and a live strength meter.',
-    keywords: 'random password, strong password, secure password, passphrase generator, memorable passphrase, diceware passphrase',
+    blurb: 'Create strong random passwords or memorable passphrases, with a length slider, symbol toggles, look-alike character exclusion and a live strength meter.',
+    keywords: 'random password, strong password, secure password, passphrase generator, memorable passphrase, diceware passphrase, exclude ambiguous characters',
   },
   {
     slug: 'qr-code-generator',

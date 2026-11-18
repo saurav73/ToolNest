@@ -10,6 +10,14 @@ const SETS = {
   symbols: '!@#$%^&*()-_=+[]{};:,.<>?',
 };
 
+/* Full alphabets, used when the look-alike exclusion is switched off. */
+const FULL_SETS = {
+  lower: 'abcdefghijklmnopqrstuvwxyz',
+  upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  digits: '0123456789',
+  symbols: '!@#$%^&*()-_=+[]{};:,.<>?',
+};
+
 const SEPARATORS = [
   { id: '-', label: 'Hyphen (word-word-word)' },
   { id: ' ', label: 'Space (word word word)' },
@@ -28,12 +36,12 @@ function secureRandomInt(max) {
   return value % max;
 }
 
-function generatePassword({ length, useLower, useUpper, useDigits, useSymbols }) {
+function generatePassword({ length, useLower, useUpper, useDigits, useSymbols, sets }) {
   const pools = [];
-  if (useLower) pools.push(SETS.lower);
-  if (useUpper) pools.push(SETS.upper);
-  if (useDigits) pools.push(SETS.digits);
-  if (useSymbols) pools.push(SETS.symbols);
+  if (useLower) pools.push(sets.lower);
+  if (useUpper) pools.push(sets.upper);
+  if (useDigits) pools.push(sets.digits);
+  if (useSymbols) pools.push(sets.symbols);
   if (!pools.length) return '';
   const all = pools.join('');
   const chars = [];
@@ -96,7 +104,7 @@ const FAQS = [
   },
   {
     q: 'Why are some letters and digits left out?',
-    a: 'The generator skips characters that are easy to confuse, such as lowercase L, uppercase I and O, and the digits 0 and 1. That keeps passwords safe to read aloud or type by hand without weakening them in any meaningful way.',
+    a: 'By default the generator skips characters that are easy to confuse, such as lowercase L, uppercase I and O, and the digits 0 and 1. That keeps passwords safe to read aloud or type by hand. If the password goes straight into a password manager and nobody will ever type it, untick "Exclude look-alike characters" to use the full character set and gain a little extra entropy.',
   },
   {
     q: 'Should I use a different password for every account?',
@@ -160,10 +168,10 @@ const CONTENT = (
     <h2>A worked example</h2>
     <p>
       Imagine you generate a password with all four character sets switched on.
-      At 12 characters the meter shows roughly 72 bits of entropy, already far
+      At 12 characters the meter shows roughly 76 bits of entropy, already far
       beyond what online guessing can reach, because a website will lock or slow
       attempts long before an attacker makes progress. Stretch the slider to 20
-      characters and entropy rises to about 120 bits. A cracking rig testing a
+      characters and entropy rises to about 127 bits. A cracking rig testing a
       leaked password database at billions of guesses per second would need
       longer than the age of the universe to work through that space. In
       practice that means length is your cheapest security: going from 12 to 20
@@ -188,6 +196,7 @@ export default function PasswordGenerator() {
   const [useUpper, setUseUpper] = useState(true);
   const [useDigits, setUseDigits] = useState(true);
   const [useSymbols, setUseSymbols] = useState(true);
+  const [excludeAmbiguous, setExcludeAmbiguous] = useState(true);
   const [password, setPassword] = useState('');
 
   const [wordCount, setWordCount] = useState(4);
@@ -196,18 +205,20 @@ export default function PasswordGenerator() {
   const [addNumber, setAddNumber] = useState(true);
   const [passphrase, setPassphrase] = useState('');
 
+  const sets = excludeAmbiguous ? SETS : FULL_SETS;
+
   const poolSize = useMemo(() => {
     let size = 0;
-    if (useLower) size += SETS.lower.length;
-    if (useUpper) size += SETS.upper.length;
-    if (useDigits) size += SETS.digits.length;
-    if (useSymbols) size += SETS.symbols.length;
+    if (useLower) size += sets.lower.length;
+    if (useUpper) size += sets.upper.length;
+    if (useDigits) size += sets.digits.length;
+    if (useSymbols) size += sets.symbols.length;
     return size;
-  }, [useLower, useUpper, useDigits, useSymbols]);
+  }, [useLower, useUpper, useDigits, useSymbols, sets]);
 
   const regen = useCallback(() => {
-    setPassword(generatePassword({ length, useLower, useUpper, useDigits, useSymbols }));
-  }, [length, useLower, useUpper, useDigits, useSymbols]);
+    setPassword(generatePassword({ length, useLower, useUpper, useDigits, useSymbols, sets }));
+  }, [length, useLower, useUpper, useDigits, useSymbols, sets]);
 
   const regenPhrase = useCallback(() => {
     setPassphrase(generatePassphrase({ wordCount, separator, capitalize, addNumber }));
@@ -228,9 +239,9 @@ export default function PasswordGenerator() {
       slug="password-generator"
       path="/password-generator"
       title="Password Generator: Passwords and Passphrases | ToolNest"
-      description="Generate strong random passwords or memorable passphrases free. Length up to 64, strength meter, made on your device only."
+      description="Generate strong random passwords or memorable passphrases free, with an option to exclude look-alike characters. Made on your device only."
       h1="Password Generator"
-      intro="Generate strong random passwords with the length and characters you want, or switch to passphrase mode for a memorable password built from words. Generation happens on your device using secure randomness, and nothing is uploaded or stored."
+      intro="Generate strong random passwords with the length and characters you want, leaving out look-alike characters when a password must be typed by hand, or switch to passphrase mode for a memorable password built from words. Generation happens on your device using secure randomness, and nothing is uploaded or stored."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -286,9 +297,11 @@ export default function PasswordGenerator() {
             <div className="checks">
               <label><input type="checkbox" checked={useLower} onChange={(e) => setUseLower(e.target.checked)} /> Lowercase (a-z)</label>
               <label><input type="checkbox" checked={useUpper} onChange={(e) => setUseUpper(e.target.checked)} /> Uppercase (A-Z)</label>
-              <label><input type="checkbox" checked={useDigits} onChange={(e) => setUseDigits(e.target.checked)} /> Digits (2-9)</label>
+              <label><input type="checkbox" checked={useDigits} onChange={(e) => setUseDigits(e.target.checked)} /> Digits {excludeAmbiguous ? '(2-9)' : '(0-9)'}</label>
               <label><input type="checkbox" checked={useSymbols} onChange={(e) => setUseSymbols(e.target.checked)} /> Symbols (!@#$)</label>
+              <label><input type="checkbox" checked={excludeAmbiguous} onChange={(e) => setExcludeAmbiguous(e.target.checked)} /> Exclude look-alike characters (I, l, 1, O, 0)</label>
             </div>
+            <p className="hint">Look-alike characters are left out by default so passwords are easy to read aloud or type by hand. Untick the option when the password goes straight into a password manager.</p>
           </div>
 
           {!poolSize && <div className="message err">Choose at least one character type to generate a password.</div>}
