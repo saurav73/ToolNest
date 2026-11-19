@@ -15,6 +15,10 @@ const FAQS = [
     a: 'It depends on the voice. Local voices, usually marked as default or offline, synthesize speech entirely on your device. Some enhanced voices in Chrome are network-based and send the text to Google for synthesis. Either way, ToolNest itself never receives, stores or logs your text; the request goes from your browser to the voice provider.',
   },
   {
+    q: 'Can I change the volume?',
+    a: 'Yes. The volume slider runs from 0 to 100 percent and scales only the voice in this tool, not your system volume. If the speech is quiet, check the volume slider here first before reaching for your device volume.',
+  },
+  {
     q: 'Can I download the audio as an MP3?',
     a: 'The Web Speech API does not offer an audio download, so this tool is for listening only: proofreading, language practice and accessibility. If you need an audio file, dedicated text-to-speech software can record system audio while this page plays.',
   },
@@ -24,7 +28,7 @@ const CONTENT = (
   <>
     <h2>Listen to your text read aloud</h2>
     <p>
-      Paste any text, pick a voice, set the speed, and hear it read back. Listening
+      Paste any text, pick a voice, set the speed, pitch and volume, and hear it read back. Listening
       is one of the best proofreading tricks there is: your ears catch repeated
       words, missing punctuation and awkward phrasing that your eyes slide over.
       It is also handy for language learners checking pronunciation, and for anyone
@@ -39,7 +43,7 @@ const CONTENT = (
     </ul>
     <h2>How text to speech works in your browser</h2>
     <p>
-      This tool uses the Web Speech API built into modern browsers. When you press Speak, your text is wrapped into a speech request along with the voice, rate and pitch you selected, and handed to the speech engine on your device. That engine breaks the text into sentences and words, looks up how each word is usually pronounced in the chosen language, and builds the audio in small chunks as it plays, rather than rendering the whole file first. That is why playback starts almost instantly even for a long article. It is also why the voice list differs between devices: the tool can only offer the voices your operating system and browser have installed, and changing browser or phone can give you a completely different set to choose from.
+      This tool uses the Web Speech API built into modern browsers. When you press Speak, your text is wrapped into a speech request along with the voice, rate, pitch and volume you selected, and handed to the speech engine on your device. That engine breaks the text into sentences and words, looks up how each word is usually pronounced in the chosen language, and builds the audio in small chunks as it plays, rather than rendering the whole file first. That is why playback starts almost instantly even for a long article. It is also why the voice list differs between devices: the tool can only offer the voices your operating system and browser have installed, and changing browser or phone can give you a completely different set to choose from.
     </p>
     <h2>A worked example: proofreading a short email</h2>
     <p>
@@ -71,6 +75,7 @@ export default function TextToSpeech() {
   const [voiceUri, setVoiceUri] = useState('');
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
+  const [volume, setVolume] = useState(1);
   const [state, setState] = useState('idle'); // idle | speaking | paused
   const utterRef = useRef(null);
 
@@ -100,6 +105,7 @@ export default function TextToSpeech() {
     if (voice) utter.voice = voice;
     utter.rate = rate;
     utter.pitch = pitch;
+    utter.volume = volume;
     utter.onend = () => setState('idle');
     utter.onerror = () => setState('idle');
     utterRef.current = utter;
@@ -129,9 +135,9 @@ export default function TextToSpeech() {
       slug="text-to-speech"
       path="/text-to-speech"
       title="Text to Speech: Read Any Text Aloud for Free | ToolNest"
-      description="Listen to any text read aloud with your choice of voices and speed control. Free text to speech in your browser, great for proofreading."
+      description="Listen to any text read aloud with your choice of voice, speed, pitch and volume. Free text to speech in your browser, great for proofreading."
       h1="Text to Speech"
-      intro="Paste text and hear it read aloud with your choice of voice, speed and pitch. Perfect for proofreading, language practice and listening on the go."
+      intro="Paste text and hear it read aloud with your choice of voice, speed, pitch and volume. Perfect for proofreading, language practice and listening on the go."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -168,6 +174,10 @@ export default function TextToSpeech() {
         <div className="field">
           <label htmlFor="tts-pitch">Pitch: {pitch.toFixed(1)}</label>
           <input id="tts-pitch" type="range" min="0" max="2" step="0.1" value={pitch} onChange={(e) => setPitch(Number(e.target.value))} />
+        </div>
+        <div className="field">
+          <label htmlFor="tts-volume">Volume: {Math.round(volume * 100)}%</label>
+          <input id="tts-volume" type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => setVolume(Number(e.target.value))} />
         </div>
       </div>
       <div className="btn-row">

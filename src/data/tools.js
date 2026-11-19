@@ -107,8 +107,8 @@ export const TOOLS = [
     path: '/text-to-speech',
     name: 'Text to Speech',
     category: 'Text Tools',
-    blurb: 'Listen to any text read aloud with your choice of voice and reading speed.',
-    keywords: 'text to speech, read aloud, tts, voice reader',
+    blurb: 'Listen to any text read aloud with your choice of voice, reading speed, pitch and volume.',
+    keywords: 'text to speech, read aloud, tts, voice reader, text to speech volume',
   },
   {
     slug: 'typing-speed-test',
