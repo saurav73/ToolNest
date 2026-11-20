@@ -335,8 +335,8 @@ export const TOOLS = [
     path: '/hash-generator',
     name: 'Hash Generator',
     category: 'Developer Tools',
-    blurb: 'Generate SHA-1, SHA-256, SHA-384 and SHA-512 hashes from text or files, entirely in your browser.',
-    keywords: 'hash generator, sha256 generator, sha256 online, file hash',
+    blurb: 'Generate SHA-1, SHA-256, SHA-384 and SHA-512 hashes from text or files, entirely in your browser, or sign a message with HMAC and a secret key for API and webhook signatures.',
+    keywords: 'hash generator, sha256 generator, sha256 online, file hash, hmac generator, hmac sha256, webhook signature',
   },
   {
     slug: 'uuid-generator',

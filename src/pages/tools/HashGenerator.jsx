@@ -18,6 +18,14 @@ const FAQS = [
     a: 'No. Hash functions are one-way by design. The only way to "reverse" one is to guess inputs and hash them until one matches, which is why short or predictable inputs such as common passwords can still be attacked with dictionaries. Never treat a hash of a password as a substitute for proper password storage.',
   },
   {
+    q: 'What is HMAC and when do I need it?',
+    a: 'HMAC mixes a secret key into the hash, so only someone with the key can produce the same signature. That is what API request signing, webhook verification (GitHub, Stripe, AWS) and JWT signatures (HS256, HS384, HS512) all rely on: the receiver recomputes the HMAC with the shared secret and checks it matches. A plain hash proves a message was not altered; an HMAC also proves it came from someone who holds the key. Switch to HMAC mode, enter your message and secret key, and pick the algorithm your API expects.',
+  },
+  {
+    q: 'Why does my HMAC not match the server?',
+    a: 'Almost always one of three things: the message bytes differ (extra spaces, newlines or a different encoding; this tool uses UTF-8 for both the message and the key), the secret key is wrong or has extra whitespace, or the output format differs (hex versus Base64 versus Base64URL, which JWT uses). Run the example from the API documentation here first: if it matches, the algorithm is right and the message assembly is wrong.',
+  },
+  {
     q: 'Is my text or file uploaded anywhere?',
     a: 'No. Hashing runs entirely in your browser using the built-in Web Crypto API. Your text and files never leave your device, which is exactly why this tool is safe for private documents, keys and pre-release material.',
   },
@@ -56,15 +64,60 @@ const CONTENT = (
       If you must verify an old MD5 checksum, use a desktop checksum utility; for
       anything new, use SHA-256.
     </p>
+    <h2>HMAC: the same hash with a secret key</h2>
+    <p>
+      Switch to HMAC mode and the tool signs your message with a secret key
+      instead of hashing it bare. Pick the algorithm your API expects (HMAC-SHA-256
+      is the modern default for AWS, GitHub webhooks, Stripe and JWT HS256; SHA-384
+      and SHA-512 cover HS384 and HS512) and the signature appears in hex, Base64
+      and Base64URL, ready to copy into the format your system expects. The key is
+      typed into a masked field and, like everything else here, never leaves your
+      browser, so it is safe to test with a real webhook secret.
+    </p>
   </>
 );
 
+function bytesToHex(bytes) {
+  return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function bytesToBase64(bytes) {
+  const arr = new Uint8Array(bytes);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < arr.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, arr.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function bytesToBase64Url(bytes) {
+  return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 async function digestHex(algo, data) {
   const buf = await window.crypto.subtle.digest(algo, data);
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return bytesToHex(buf);
+}
+
+async function hmacSign(algo, keyText, message) {
+  const key = await window.crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(keyText),
+    { name: 'HMAC', hash: algo },
+    false,
+    ['sign'],
+  );
+  const sig = await window.crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return {
+    hex: bytesToHex(sig),
+    base64: bytesToBase64(sig),
+    base64url: bytesToBase64Url(sig),
+  };
 }
 
 export default function HashGenerator() {
+  const [mode, setMode] = useState('hash');
   const [text, setText] = useState('');
   const [results, setResults] = useState(null);
   const [upper, setUpper] = useState(false);
@@ -73,8 +126,33 @@ export default function HashGenerator() {
   const [fileResults, setFileResults] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [secret, setSecret] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [hmacAlgo, setHmacAlgo] = useState('SHA-256');
+  const [hmacResults, setHmacResults] = useState(null);
 
   const show = (hex) => (upper ? hex.toUpperCase() : hex);
+
+  const switchMode = (m) => {
+    setMode(m);
+    setError('');
+    setResults(null);
+    setHmacResults(null);
+  };
+
+  const generateHmac = async () => {
+    setError('');
+    if (!secret) {
+      setError('Enter a secret key first. HMAC needs a key as well as a message.');
+      return;
+    }
+    try {
+      const out = await hmacSign(hmacAlgo, secret, text);
+      setHmacResults(out);
+    } catch (e) {
+      setError('HMAC failed: ' + e.message);
+    }
+  };
 
   const generateText = async () => {
     setError('');
@@ -110,17 +188,78 @@ export default function HashGenerator() {
     <ToolLayout
       slug="hash-generator"
       path="/hash-generator"
-      title="SHA-256 Hash Generator Online Free: Text to Hash | ToolNest"
-      description="Generate SHA-1, SHA-256, SHA-384 and SHA-512 hashes from any text in your browser. Nothing is uploaded or stored."
+      title="Hash and HMAC Generator: SHA-256, HMAC Online | ToolNest"
+      description="Generate SHA-1, SHA-256, SHA-384 and SHA-512 hashes or HMAC signatures with a secret key, in your browser. Nothing is uploaded."
       h1="Hash Generator"
-      intro="Generate SHA-1, SHA-256, SHA-384 and SHA-512 hashes from text or files, entirely in your browser. Nothing is uploaded or stored."
+      intro="Generate SHA-1, SHA-256, SHA-384 and SHA-512 hashes from text or files, or sign a message with HMAC and a secret key, entirely in your browser. Nothing is uploaded or stored."
       faqs={FAQS}
       content={CONTENT}
     >
+      <div className="btn-row" role="tablist" aria-label="Hash mode">
+        <button type="button" className={mode === 'hash' ? 'btn' : 'btn secondary'} onClick={() => switchMode('hash')}>Plain hashes</button>
+        <button type="button" className={mode === 'hmac' ? 'btn' : 'btn secondary'} onClick={() => switchMode('hmac')}>HMAC with a secret key</button>
+      </div>
       <div className="field">
-        <label htmlFor="hash-text">Text to hash</label>
+        <label htmlFor="hash-text">{mode === 'hmac' ? 'Message to sign' : 'Text to hash'}</label>
         <textarea id="hash-text" rows={4} value={text} onChange={(e) => setText(e.target.value)} />
       </div>
+      {mode === 'hmac' && (
+        <>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="hmac-secret">Secret key</label>
+              <input id="hmac-secret" type={showKey ? 'text' : 'password'} value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="Your shared secret" autoComplete="off" spellCheck={false} />
+            </div>
+            <div className="field">
+              <label htmlFor="hmac-algo">Algorithm</label>
+              <select id="hmac-algo" value={hmacAlgo} onChange={(e) => setHmacAlgo(e.target.value)}>
+                {ALGOS.map((a) => (
+                  <option key={a} value={a}>HMAC-{a}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="checks" style={{ marginBottom: 6 }}>
+            <label>
+              <input type="checkbox" checked={showKey} onChange={(e) => setShowKey(e.target.checked)} /> Show secret key
+            </label>
+            <label>
+              <input type="checkbox" checked={upper} onChange={(e) => setUpper(e.target.checked)} /> Uppercase hex output
+            </label>
+          </div>
+          <div className="btn-row">
+            <button type="button" className="btn" onClick={generateHmac} disabled={!text || !secret}>Generate HMAC</button>
+          </div>
+          {hmacResults && (
+            <div className="field">
+              <label>HMAC-{hmacAlgo} signature</label>
+              <div className="row">
+                <div className="field">
+                  <label>Hex</label>
+                  <input type="text" readOnly value={show(hmacResults.hex)} />
+                </div>
+                <CopyButton text={show(hmacResults.hex)} label="Copy" className="btn secondary" />
+              </div>
+              <div className="row">
+                <div className="field">
+                  <label>Base64</label>
+                  <input type="text" readOnly value={hmacResults.base64} />
+                </div>
+                <CopyButton text={hmacResults.base64} label="Copy" className="btn secondary" />
+              </div>
+              <div className="row">
+                <div className="field">
+                  <label>Base64URL (for JWT)</label>
+                  <input type="text" readOnly value={hmacResults.base64url} />
+                </div>
+                <CopyButton text={hmacResults.base64url} label="Copy" className="btn secondary" />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      {mode === 'hash' && (
+        <>
       <div className="checks" style={{ marginBottom: 6 }}>
         <label>
           <input type="checkbox" checked={upper} onChange={(e) => setUpper(e.target.checked)} /> Uppercase output
@@ -172,6 +311,8 @@ export default function HashGenerator() {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
       {error && <div className="message err">{error}</div>}
     </ToolLayout>
