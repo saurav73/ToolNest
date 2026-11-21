@@ -319,8 +319,8 @@ export const TOOLS = [
     path: '/invoice-generator',
     name: 'Invoice Generator',
     category: 'Business Tools',
-    blurb: 'Create professional PDF invoices free: items, tax, discount, logo and live totals. No sign-up.',
-    keywords: 'invoice generator, free invoice generator, invoice maker, create invoice pdf',
+    blurb: 'Create professional PDF invoices free: items, tax, discount, logo and live totals, with your draft saved on this device. No sign-up.',
+    keywords: 'invoice generator, free invoice generator, invoice maker, create invoice pdf, save invoice draft',
   },
   {
     slug: 'regex-tester',

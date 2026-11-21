@@ -54,6 +54,47 @@ const ACCENTS = [
 const DESIGN_KEY = 'toolnest-invoice-design';
 const HEX_RE = /^#[0-9a-f]{6}$/i;
 
+const DRAFT_KEY = 'toolnest:invoice-draft';
+
+/** Read the saved invoice draft (form fields only, never the logo). */
+function loadDraft() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(DRAFT_KEY) || 'null');
+    if (!saved || typeof saved !== 'object') return null;
+    const str = (v) => (typeof v === 'string' ? v : '');
+    const num = (v, d) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : d;
+    };
+    const items = Array.isArray(saved.items)
+      ? saved.items.slice(0, 100).map((r) => ({
+          desc: str(r && r.desc),
+          qty: num(r && r.qty, 1),
+          rate: num(r && r.rate, 0),
+        }))
+      : null;
+    return {
+      bizName: str(saved.bizName),
+      bizEmail: str(saved.bizEmail),
+      bizAddress: str(saved.bizAddress),
+      clientName: str(saved.clientName),
+      clientEmail: str(saved.clientEmail),
+      clientAddress: str(saved.clientAddress),
+      number: str(saved.number) || 'INV-0001',
+      issueDate: str(saved.issueDate),
+      dueDate: str(saved.dueDate),
+      currency: CURRENCIES.includes(saved.currency) ? saved.currency : 'USD',
+      items: items && items.length ? items : null,
+      taxPct: Math.min(100, Math.max(0, num(saved.taxPct, 0))),
+      discountPct: Math.min(100, Math.max(0, num(saved.discountPct, 0))),
+      notes: str(saved.notes),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Read the saved design (template + accent only, never invoice data). */
 function loadDesign() {
   if (typeof window === 'undefined') return {};
@@ -85,7 +126,7 @@ const FAQS = [
   },
   {
     q: 'Where is my invoice data stored?',
-    a: 'Nowhere but this browser tab. There is no server behind the tool, so your client names, prices and totals are not uploaded, saved or analysed. If you refresh the page the form resets, which is the honest trade for total privacy; download the PDF as your copy.',
+    a: 'On this device only. There is no server behind the tool, so your client names, prices and totals are never uploaded, saved or analysed anywhere else. Your draft is saved in this browser as you type, so a refresh or a closed tab never loses it. Press Start a new invoice to clear it when the job is done, and download the PDF as your copy to send and file.',
   },
   {
     q: 'Can I add my logo and tax?',
@@ -97,7 +138,7 @@ const FAQS = [
   },
   {
     q: 'Can I customise the design and colour of my invoice?',
-    a: 'Yes. Choose from four templates: Classic, Modern with a colour band header, Minimal with greys only, and Bold with a filled colour table header. Pick an accent colour from the presets or set any custom colour of your own. The preview updates as you choose, and the PDF is built with the same template and colour, so what you see is exactly what prints. Your design choice is remembered on this device for next time; your invoice details are never stored.',
+    a: 'Yes. Choose from four templates: Classic, Modern with a colour band header, Minimal with greys only, and Bold with a filled colour table header. Pick an accent colour from the presets or set any custom colour of your own. The preview updates as you choose, and the PDF is built with the same template and colour, so what you see is exactly what prints. Your design choice is remembered on this device for next time, and your invoice draft is saved on this device too, so a refresh never loses it.',
   },
 ];
 
@@ -159,7 +200,7 @@ const CONTENT = (
       <li><strong>Match the client's purchase order wording.</strong> If they gave you a PO number or a project name, put it in the notes. Accounts payable teams pay the invoices they can match without emailing you.</li>
       <li><strong>Keep numbering boring and sequential.</strong> INV-0001, INV-0002. Gaps invite questions in an audit; a clean sequence reads as a clean business.</li>
       <li><strong>Say how to pay in the notes.</strong> Bank details or a payment link in the notes field removes the most common reason invoices sit unpaid: the client meant to ask.</li>
-      <li><strong>Download and file every PDF.</strong> The form resets on refresh by design, so the downloaded PDF is your record. Keep a folder per year and tax season becomes a filing exercise, not an archaeology dig.</li>
+      <li><strong>Download and file every PDF.</strong> Your draft is saved on this device as you type, so a refresh never loses it, but the downloaded PDF is still your record to send and keep. Keep a folder per year and tax season becomes a filing exercise, not an archaeology dig.</li>
     </ul>
     <h2>A worked example</h2>
     <p>
@@ -176,20 +217,24 @@ const CONTENT = (
 );
 
 export default function InvoiceGenerator() {
-  const [bizName, setBizName] = useState('');
-  const [bizEmail, setBizEmail] = useState('');
-  const [bizAddress, setBizAddress] = useState('');
-  const [clientName, setClientName] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
-  const [clientAddress, setClientAddress] = useState('');
-  const [number, setNumber] = useState('INV-0001');
-  const [issueDate, setIssueDate] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [currency, setCurrency] = useState('USD');
-  const [items, setItems] = useState([newRow(), newRow()]);
-  const [taxPct, setTaxPct] = useState(0);
-  const [discountPct, setDiscountPct] = useState(0);
-  const [notes, setNotes] = useState('');
+  const [draft] = useState(loadDraft);
+  const [bizName, setBizName] = useState(draft?.bizName || '');
+  const [bizEmail, setBizEmail] = useState(draft?.bizEmail || '');
+  const [bizAddress, setBizAddress] = useState(draft?.bizAddress || '');
+  const [clientName, setClientName] = useState(draft?.clientName || '');
+  const [clientEmail, setClientEmail] = useState(draft?.clientEmail || '');
+  const [clientAddress, setClientAddress] = useState(draft?.clientAddress || '');
+  const [number, setNumber] = useState(draft?.number || 'INV-0001');
+  const [issueDate, setIssueDate] = useState(draft?.issueDate || '');
+  const [dueDate, setDueDate] = useState(draft?.dueDate || '');
+  const [currency, setCurrency] = useState(draft?.currency || 'USD');
+  const [items, setItems] = useState(() => {
+    if (!draft?.items) return [newRow(), newRow()];
+    return draft.items.map((r) => ({ id: (rowSeq += 1), desc: r.desc, qty: r.qty, rate: r.rate }));
+  });
+  const [taxPct, setTaxPct] = useState(draft?.taxPct ?? 0);
+  const [discountPct, setDiscountPct] = useState(draft?.discountPct ?? 0);
+  const [notes, setNotes] = useState(draft?.notes || '');
   const [logo, setLogo] = useState(null); // {dataUrl, kind: 'png'|'jpg'}
   const [template, setTemplate] = useState(() => loadDesign().template || 'classic');
   const [accent, setAccent] = useState(() => loadDesign().accent || '#4F46E5');
@@ -199,10 +244,10 @@ export default function InvoiceGenerator() {
   useEffect(() => {
     const today = new Date();
     const iso = (d) => d.toISOString().slice(0, 10);
-    setIssueDate(iso(today));
+    setIssueDate((d) => d || iso(today));
     const due = new Date(today);
     due.setDate(due.getDate() + 14);
-    setDueDate(iso(due));
+    setDueDate((d) => d || iso(due));
   }, []);
 
   /* Remember only the design (template + accent colour), never invoice data. */
@@ -211,6 +256,37 @@ export default function InvoiceGenerator() {
       window.localStorage.setItem(DESIGN_KEY, JSON.stringify({ template, accent }));
     } catch { /* storage unavailable: the design simply will not persist */ }
   }, [template, accent]);
+
+  /* Save the invoice draft on this device only, so a refresh never loses it. */
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        bizName, bizEmail, bizAddress, clientName, clientEmail, clientAddress,
+        number, issueDate, dueDate, currency,
+        items: items.map(({ desc, qty, rate }) => ({ desc, qty, rate })),
+        taxPct, discountPct, notes,
+      }));
+    } catch { /* storage unavailable: the draft simply will not persist */ }
+  }, [bizName, bizEmail, bizAddress, clientName, clientEmail, clientAddress, number, issueDate, dueDate, currency, items, taxPct, discountPct, notes]);
+
+  const startNewInvoice = () => {
+    if (!window.confirm('Start a new invoice? This clears the saved draft on this device.')) return;
+    try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    setBizName(''); setBizEmail(''); setBizAddress('');
+    setClientName(''); setClientEmail(''); setClientAddress('');
+    setNumber('INV-0001');
+    const today = new Date();
+    const iso = (d) => d.toISOString().slice(0, 10);
+    setIssueDate(iso(today));
+    const due = new Date(today);
+    due.setDate(due.getDate() + 14);
+    setDueDate(iso(due));
+    setCurrency('USD');
+    setItems([newRow(), newRow()]);
+    setTaxPct(0); setDiscountPct(0); setNotes('');
+    setLogo(null);
+    setDone(false);
+  };
 
   const totals = useMemo(() => {
     const subtotal = items.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.rate) || 0), 0);
@@ -408,9 +484,9 @@ export default function InvoiceGenerator() {
       slug="invoice-generator"
       path="/invoice-generator"
       title="Invoice Generator Free: Create PDF Invoices | ToolNest"
-      description="Create professional PDF invoices free in your browser. Choose a template and colour, add items, tax and a logo, then download. No sign-up."
+      description="Create professional PDF invoices free in your browser, with your draft saved on this device. Items, tax, logo and live totals. No sign-up."
       h1="Invoice Generator"
-      intro="Create a clean, professional PDF invoice in your browser: your details, your client, itemised work, tax and totals, computed live. No sign-up, no watermark, and your data never leaves your device."
+      intro="Create a clean, professional PDF invoice in your browser: your details, your client, itemised work, tax and totals, computed live. No sign-up, no watermark, your data never leaves your device, and your draft is saved on this device if you need to come back to it."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -578,7 +654,9 @@ export default function InvoiceGenerator() {
             {busy ? <BusyLabel label="Building your invoice PDF..." /> : 'Download PDF invoice'}
           </button>
           <button type="button" className="btn secondary" onClick={() => window.print()}>Print invoice</button>
+          <button type="button" className="btn ghost" onClick={startNewInvoice}>Start a new invoice</button>
         </div>
+        <p className="hint">Your draft is saved on this device as you type, and never uploaded. Starting a new invoice clears it; your logo is not saved, so add it again if you use one.</p>
         {busy && <ProcessingNote label="Building your invoice PDF on your device..." />}
         {done && !busy && <div className="message ok">Your invoice PDF has been created and downloaded. Check it once before sending, and keep a copy for your records.</div>}
       </div>
