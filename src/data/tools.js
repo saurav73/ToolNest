@@ -343,8 +343,8 @@ export const TOOLS = [
     path: '/uuid-generator',
     name: 'UUID Generator',
     category: 'Developer Tools',
-    blurb: 'Generate one or bulk random UUIDs (v4) instantly, validate any UUID, and copy or download the list.',
-    keywords: 'uuid generator, generate uuid, random uuid, uuid validator',
+    blurb: 'Generate UUIDs in versions 4, 7, 1 or 5, one or up to 100 at a time, and validate any UUID with its version and creation time.',
+    keywords: 'uuid generator, generate uuid, random uuid, uuid validator, uuid v7 generator, uuid v5 generator',
   },
   {
     slug: 'color-picker',
