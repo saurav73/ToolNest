@@ -16,6 +16,10 @@ const FAQS = [
     a: 'By relative luminance, the standard measure of how bright a color appears to the human eye. If the background is bright, dark text is suggested; if it is dark, light text is suggested. The pair shown always meets the common readability bar for large text, and most pairs meet it for normal text too.',
   },
   {
+    q: 'How do I find colors that go with this one?',
+    a: 'Pick a harmony below the shades and tints. Complementary pairs your color with its opposite on the wheel, analogous stays with its neighbors for a calm set, triadic spaces three colors evenly, split complementary softens the contrast, tetradic uses two complementary pairs, and monochromatic varies only lightness. Click any swatch to make it the picked color, or copy the whole palette at once.',
+  },
+  {
     q: 'Can I use the colors in my own design?',
     a: 'Yes. Every value shown is a plain color code with no license attached: HEX, RGB and HSL values are facts, not creative work. Copy any of them straight into CSS, a design tool or a slide deck.',
   },
@@ -26,21 +30,22 @@ const CONTENT = (
     <h2>Pick a color, get every format at once</h2>
     <p>
       Choose a color with the picker or type a hex code, and this tool instantly
-      shows the matching HEX, RGB and HSL values, a set of shades and tints, and
-      the text color that stays readable on top of it. Everything runs in your
-      browser, so you can experiment freely while working on a site, a slide
-      deck, a brand palette or a social post.
+      shows the matching HEX, RGB and HSL values, a set of shades and tints,
+      matching color harmonies, and the text color that stays readable on top
+      of it. Everything runs in your browser, so you can experiment freely while
+      working on a site, a slide deck, a brand palette or a social post.
     </p>
     <h2>How to use the color picker</h2>
     <ul>
       <li><strong>Pick visually:</strong> use the color swatch to explore, then fine-tune with the hex box or the RGB sliders. All three formats stay in sync.</li>
       <li><strong>Copy any format:</strong> each value has a copy button, so you can drop #3B82F6, rgb(59, 130, 246) or hsl(217, 91%, 60%) straight into your CSS.</li>
-      <li><strong>Build a palette:</strong> the shades row darkens your color toward black and the tints row lightens it toward white, giving you ready-made variants for backgrounds, borders and hover states.</li>
+      <li><strong>Build a palette:</strong> the shades row darkens your color toward black and the tints row lightens it toward white, giving you ready-made variants for backgrounds, borders and hover states. The harmony picker below builds a matching set from the color wheel, so you can pick an accent that actually goes with your brand color.</li>
       <li><strong>Check readability:</strong> the preview shows your color with the suggested text color on top, so you can judge contrast before shipping a button or banner.</li>
     </ul>
     <h2>Choosing colors that work together</h2>
     <ul>
       <li><strong>One dominant color:</strong> pick a single brand color and use its shades and tints for everything else. A page built from one hue always looks more coherent than one built from five unrelated colors.</li>
+      <li><strong>Use a harmony for accents:</strong> complementary gives the strongest contrast for a call to action, analogous keeps things calm, and triadic gives three evenly spaced colors for charts or playful brands. Let one color dominate and use the others sparingly.</li>
       <li><strong>Contrast for text:</strong> body text needs strong contrast against its background. If your brand color is mid-tone, use a dark shade of it for text rather than the color itself.</li>
       <li><strong>Restraint with brights:</strong> fully saturated colors demand attention, so reserve them for the one action you want people to take, and keep backgrounds muted.</li>
       <li><strong>Test in grayscale:</strong> if your design still reads clearly with the color removed, its structure is sound. Color should reinforce hierarchy, not carry it alone.</li>
@@ -85,6 +90,36 @@ function rgbToHsl({ r, g, b }) {
   return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
 }
 
+function hslToRgb(h, s, l) {
+  const sn = s / 100, ln = l / 100;
+  const c = (1 - Math.abs(2 * ln - 1)) * sn;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = ln - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
+  };
+}
+
+/* Hue offsets from the base color for each harmony rule, plus a short
+   note on what each one is for. Monochromatic varies lightness instead. */
+const HARMONIES = {
+  complementary: { label: 'Complementary', offsets: [0, 180], note: 'Your color plus its opposite on the wheel, for the strongest contrast.' },
+  analogous: { label: 'Analogous', offsets: [-30, 0, 30], note: 'Your color with its two neighbors on the wheel, for a calm, natural set.' },
+  triadic: { label: 'Triadic', offsets: [0, 120, 240], note: 'Three colors spaced evenly around the wheel, for a lively but balanced set.' },
+  'split-complementary': { label: 'Split complementary', offsets: [0, 150, 210], note: 'Your color plus the two neighbors of its opposite, for contrast that is easier to balance.' },
+  tetradic: { label: 'Tetradic', offsets: [0, 90, 180, 270], note: 'Two complementary pairs, for a rich set where one color should dominate.' },
+  monochromatic: { label: 'Monochromatic', lightness: [-30, -15, 0, 15, 30], note: 'One hue in five lightness steps, for an elegant, minimal set.' },
+};
+
 function mix(rgb, target, t) {
   return {
     r: Math.round(rgb.r + (target.r - rgb.r) * t),
@@ -104,12 +139,20 @@ function luminance({ r, g, b }) {
 export default function ColorPicker() {
   const [hex, setHex] = useState('#3B82F6');
   const [hexInput, setHexInput] = useState('#3B82F6');
+  const [harmony, setHarmony] = useState('complementary');
 
   const rgb = useMemo(() => hexToRgb(hex) || { r: 59, g: 130, b: 246 }, [hex]);
   const hsl = useMemo(() => rgbToHsl(rgb), [rgb]);
   const textColor = luminance(rgb) > 0.179 ? '#111111' : '#FFFFFF';
   const shades = useMemo(() => [0.2, 0.4, 0.6, 0.8].map((t) => rgbToHex(mix(rgb, { r: 0, g: 0, b: 0 }, t))), [rgb]);
   const tints = useMemo(() => [0.2, 0.4, 0.6, 0.8].map((t) => rgbToHex(mix(rgb, { r: 255, g: 255, b: 255 }, t))), [rgb]);
+  const palette = useMemo(() => {
+    const rule = HARMONIES[harmony];
+    if (rule.lightness) {
+      return rule.lightness.map((dl) => rgbToHex(hslToRgb(hsl.h, hsl.s, Math.max(5, Math.min(95, hsl.l + dl)))));
+    }
+    return rule.offsets.map((dh) => rgbToHex(hslToRgb((hsl.h + dh + 360) % 360, hsl.s, hsl.l)));
+  }, [hsl, harmony]);
 
   const applyHex = (value) => {
     setHexInput(value);
@@ -136,9 +179,9 @@ export default function ColorPicker() {
       slug="color-picker"
       path="/color-picker"
       title="Color Picker Online: HEX, RGB, HSL Converter Free | ToolNest"
-      description="Pick any color and get its HEX, RGB and HSL values instantly, with shades, tints and contrast-safe text suggestions. Free."
+      description="Pick any color and get its HEX, RGB and HSL values instantly, with shades, tints, color harmonies and contrast-safe text suggestions."
       h1="Color Picker"
-      intro="Pick any color and get its HEX, RGB and HSL values instantly, plus shades, tints and the text color that stays readable on top of it."
+      intro="Pick any color and get its HEX, RGB and HSL values instantly, plus shades, tints, matching color harmonies and the text color that stays readable on top of it."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -178,7 +221,7 @@ export default function ColorPicker() {
       <div className="field">
         <label>Preview with suggested text color</label>
         <p style={{ background: hex, color: textColor, padding: 20, borderRadius: 8, fontWeight: 600 }}>
-          Sample text on {hex} — suggested text color {textColor}
+          Sample text on {hex}, suggested text color {textColor}
         </p>
       </div>
       <div className="field">
@@ -196,6 +239,22 @@ export default function ColorPicker() {
             <button key={t} type="button" className="btn secondary" onClick={() => applyHex(t)} style={{ background: t, color: luminance(hexToRgb(t)) > 0.179 ? '#111' : '#fff' }}>{t}</button>
           ))}
         </div>
+      </div>
+      <div className="field">
+        <label>Color harmony</label>
+        <div className="btn-row">
+          {Object.entries(HARMONIES).map(([key, rule]) => (
+            <button key={key} type="button" className="btn secondary" aria-pressed={harmony === key} onClick={() => setHarmony(key)} style={harmony === key ? { outline: '2px solid #111', outlineOffset: 2 } : undefined}>{rule.label}</button>
+          ))}
+        </div>
+        <p>{HARMONIES[harmony].note}</p>
+        <div className="btn-row">
+          {palette.map((c, i) => (
+            <button key={c + i} type="button" className="btn secondary" onClick={() => applyHex(c)} title="Use this color" style={{ background: c, color: luminance(hexToRgb(c)) > 0.179 ? '#111' : '#fff' }}>{c}</button>
+          ))}
+        </div>
+        <p>Click a swatch to make it the picked color.</p>
+        <CopyButton text={palette.join(', ')} label="Copy palette" className="btn secondary" />
       </div>
     </ToolLayout>
   );

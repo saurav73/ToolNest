@@ -351,8 +351,8 @@ export const TOOLS = [
     path: '/color-picker',
     name: 'Color Picker',
     category: 'Developer Tools',
-    blurb: 'Pick any color and get its HEX, RGB and HSL values instantly, with shades, tints and readable text suggestions.',
-    keywords: 'color picker, hex color picker, rgb to hex, hsl converter',
+    blurb: 'Pick any color and get its HEX, RGB and HSL values instantly, with shades, tints, matching color harmonies and readable text suggestions.',
+    keywords: 'color picker, hex color picker, rgb to hex, hsl converter, color palette, complementary color, color harmony',
   },
 ];
 
