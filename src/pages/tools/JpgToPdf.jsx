@@ -11,6 +11,18 @@ const PAGE_SIZES = [
   { id: 'letter', label: 'US Letter (8.5 × 11 in)', w: 612, h: 792 },
 ];
 
+const ORIENTATIONS = [
+  { id: 'portrait', label: 'Portrait' },
+  { id: 'landscape', label: 'Landscape' },
+  { id: 'auto', label: 'Auto (match each image)' },
+];
+
+const MARGINS = [
+  { id: 'big', label: 'Big margin (about 13 mm)', pts: 36 },
+  { id: 'small', label: 'Small margin (about 6 mm)', pts: 18 },
+  { id: 'none', label: 'No margin', pts: 0 },
+];
+
 const FAQS = [
   {
     q: 'Which image formats can I add?',
@@ -18,7 +30,11 @@ const FAQS = [
   },
   {
     q: 'What page size should I choose?',
-    a: 'Fit to image makes each page exactly the size of its image, which is best for viewing on screens. A4 and Letter place each image on a standard paper page with margins, scaling it to fit, which is the right choice when the PDF will be printed.',
+    a: 'Fit to image makes each page exactly the size of its image, which is best for viewing on screens. A4 and Letter place each image on a standard paper page with margins, scaling it to fit, which is the right choice when the PDF will be printed. Use the orientation and margin controls below the page size to match wide photos and control the white border.',
+  },
+  {
+    q: 'Can I make landscape pages or change the margins?',
+    a: 'Yes. Below the page size you can pick Portrait, Landscape, or Auto, which gives each image a page that matches its own shape, so wide photos get landscape pages and tall photos get portrait pages. You can also pick a big margin, a small margin, or no margin. Both settings apply to A4 and Letter pages; fit to image pages always match the image exactly.',
   },
   {
     q: 'Are my images uploaded?',
@@ -38,7 +54,8 @@ const CONTENT = (
       image per page. It is the fastest way to turn phone photos of documents,
       scanned pages or a gallery of pictures into one tidy, easy-to-share file.
       Choose fit-to-image pages for screen viewing or standard A4 or Letter pages
-      for printing, all without uploading anything.
+      for printing, with portrait or landscape orientation and a margin you choose,
+      all without uploading anything.
     </p>
     <h2>Good uses for image-to-PDF</h2>
     <ul>
@@ -49,12 +66,12 @@ const CONTENT = (
     </ul>
     <h2>How image to PDF conversion works under the hood</h2>
     <p>
-      When you add images, your browser reads each file and the tool builds the PDF locally with pdf-lib, an open source JavaScript library. JPG files are embedded directly, which means the compressed image data from your camera or scanner is placed inside the PDF without being decoded and saved again. That keeps file sizes predictable and avoids an extra loss of quality. PNG files are embedded directly as well, which suits screenshots and scanned line art. Other formats your browser can display, such as WebP, are first drawn onto a canvas in memory and converted to PNG so they can be embedded reliably. For each image the tool creates one page. With fit to image, the page dimensions match the image. With A4 or Letter, the tool creates a standard paper page, leaves a margin of 36 points on each side, and scales the image proportionally so the whole picture fits without cropping or stretching. Nothing is uploaded, so personal photos and identity documents stay on your device.
+      When you add images, your browser reads each file and the tool builds the PDF locally with pdf-lib, an open source JavaScript library. JPG files are embedded directly, which means the compressed image data from your camera or scanner is placed inside the PDF without being decoded and saved again. That keeps file sizes predictable and avoids an extra loss of quality. PNG files are embedded directly as well, which suits screenshots and scanned line art. Other formats your browser can display, such as WebP, are first drawn onto a canvas in memory and converted to PNG so they can be embedded reliably. For each image the tool creates one page. With fit to image, the page dimensions match the image. With A4 or Letter, the tool creates a standard paper page, leaves the margin you chose on each side (big is 36 points by default), and scales the image proportionally so the whole picture fits without cropping or stretching. Portrait keeps every page tall, Landscape makes every page wide, and Auto gives each image a page that matches its own shape. Nothing is uploaded, so personal photos and identity documents stay on your device.
     </p>
     <h2>Practical tips for better looking results</h2>
     <ul>
       <li><strong>Photograph documents flat and straight.</strong> Place the page on a contrasting surface, hold the phone directly above it, and avoid shadows across the text. A straight photo reads far better once it becomes a PDF page.</li>
-      <li><strong>Mix portrait and landscape with care.</strong> On A4 and Letter pages, a landscape photo on a portrait page will be scaled down to fit the width and will leave large empty bands above and below. If most of your images are landscape, consider whether fit to image gives a cleaner result for screen viewing.</li>
+      <li><strong>Use the orientation control for mixed sets.</strong> Auto gives each image a page that matches its own shape, so a landscape photo gets a landscape page instead of shrinking onto a portrait one. Choose Portrait for all pages if the document will be printed and stapled, since mixed orientations are awkward on paper.</li>
       <li><strong>Order images before you build.</strong> Use the up and down controls so the cover, form, or first chapter comes first. File names from a phone camera rarely sort in story order, so a quick manual check prevents a jumbled document.</li>
       <li><strong>Watch total size for email.</strong> Ten full resolution phone photos at 4 MB each will produce a PDF of roughly 40 MB, which most email services will reject. If size matters, reduce the images first with <a href="/image-compressor">Image Compressor</a> or resize them with <a href="/image-resizer">Image Resizer</a> before converting.</li>
       <li><strong>Choose PNG for crisp text screenshots.</strong> Screenshots and scanned forms with sharp edges stay cleaner as PNG. Photos are usually smaller and just as clear as JPG, so keeping each image in its original format is a sensible default.</li>
@@ -76,6 +93,8 @@ const CONTENT = (
 export default function JpgToPdf() {
   const [files, setFiles] = useState([]);
   const [sizeId, setSizeId] = useState('a4');
+  const [orientationId, setOrientationId] = useState('portrait');
+  const [marginId, setMarginId] = useState('big');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
   const [result, setResult] = useState(null);
@@ -129,14 +148,17 @@ export default function JpgToPdf() {
           const page = doc.addPage([embed.width, embed.height]);
           page.drawImage(embed, { x: 0, y: 0, width: embed.width, height: embed.height });
         } else {
-          const page = doc.addPage([size.w, size.h]);
-          const margin = 36;
-          const maxW = size.w - margin * 2;
-          const maxH = size.h - margin * 2;
+          const wide = orientationId === 'landscape' || (orientationId === 'auto' && embed.width > embed.height);
+          const pw = wide ? size.h : size.w;
+          const ph = wide ? size.w : size.h;
+          const page = doc.addPage([pw, ph]);
+          const margin = MARGINS.find((m) => m.id === marginId).pts;
+          const maxW = pw - margin * 2;
+          const maxH = ph - margin * 2;
           const scale = Math.min(maxW / embed.width, maxH / embed.height);
           const w = embed.width * scale;
           const h = embed.height * scale;
-          page.drawImage(embed, { x: (size.w - w) / 2, y: (size.h - h) / 2, width: w, height: h });
+          page.drawImage(embed, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
         }
       }
       const saved = await doc.save();
@@ -157,9 +179,9 @@ export default function JpgToPdf() {
       slug="jpg-to-pdf"
       path="/jpg-to-pdf"
       title="JPG to PDF Converter Free: Combine Images Online | ToolNest"
-      description="Convert and combine JPG, PNG and WebP images into one PDF free. A4 or Letter pages, no upload, no sign-up, instant download."
+      description="Convert JPG, PNG and WebP images into one PDF free. A4 or Letter pages, portrait or landscape, margins you choose. No upload, no sign-up."
       h1="JPG to PDF Converter"
-      intro="Convert and combine one or more images into a single PDF document free. Choose A4, Letter or fit-to-image pages, arrange the order, and download, all without uploading your images and without signing up."
+      intro="Convert and combine one or more images into a single PDF document free. Choose A4, Letter or fit-to-image pages, pick portrait or landscape orientation and a margin, arrange the order, and download, all without uploading your images and without signing up."
       faqs={FAQS}
       content={CONTENT}
     >
@@ -187,6 +209,24 @@ export default function JpgToPdf() {
           {PAGE_SIZES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
       </div>
+
+      {sizeId !== 'fit' && (
+        <>
+          <div className="field" style={{ marginTop: 16 }}>
+            <label htmlFor="jpgpdf-orientation">Orientation</label>
+            <select id="jpgpdf-orientation" value={orientationId} onChange={(e) => setOrientationId(e.target.value)}>
+              {ORIENTATIONS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          </div>
+
+          <div className="field" style={{ marginTop: 16 }}>
+            <label htmlFor="jpgpdf-margin">Margin</label>
+            <select id="jpgpdf-margin" value={marginId} onChange={(e) => setMarginId(e.target.value)}>
+              {MARGINS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </div>
+        </>
+      )}
 
       {status && <div className={`message ${status.ok ? 'ok' : 'err'}`}>{status.msg}</div>}
       {busy && <ProcessingNote label="Building your PDF..." />}
