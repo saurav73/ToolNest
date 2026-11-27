@@ -636,7 +636,11 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   border-radius: 10px;
   padding: 10px 14px;
   margin-bottom: 8px;
+  cursor: grab;
 }
+.file-item.dragging { opacity: 0.5; cursor: grabbing; }
+.file-item.drag-over { border-color: var(--accent); background: var(--accent-soft); }
+.reorder-hint { color: var(--ink-soft); font-size: 13.5px; margin: 12px 0 0; }
 .file-name { font-weight: 500; word-break: break-all; }
 .file-size { color: var(--ink-soft); font-size: 13.5px; }
 .file-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }

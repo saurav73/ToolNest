@@ -197,8 +197,8 @@ export const TOOLS = [
     path: '/merge-pdf',
     name: 'Merge PDF',
     category: 'PDF Tools',
-    blurb: 'Combine multiple PDF files into a single document, in the order you choose.',
-    keywords: 'merge pdf, combine pdf, join pdf files',
+    blurb: 'Combine multiple PDF files into a single document, in the order you choose, with drag and drop reordering.',
+    keywords: 'merge pdf, combine pdf, join pdf files, reorder pdf files, drag and drop merge pdf',
   },
   {
     slug: 'split-pdf',

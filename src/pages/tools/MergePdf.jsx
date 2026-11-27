@@ -20,7 +20,7 @@ const FAQS = [
   },
   {
     q: 'How do I change the order of the documents?',
-    a: 'Use the up and down buttons next to each file to arrange the list before merging. The first file in the list becomes the first pages of the merged PDF. You can also remove a file and add it again at the end.',
+    a: 'Drag any file up or down the list to put it where you want it, or use the up and down buttons next to each file. The first file in the list becomes the first pages of the merged PDF. You can also remove a file and add it again at the end.',
   },
 ];
 
@@ -50,7 +50,7 @@ const CONTENT = (
     </p>
     <h2>Practical tips for a cleaner merge</h2>
     <ul>
-      <li><strong>Order files before you merge.</strong> Add the cover or main document first, then supporting documents in reading order. Use the up and down controls and double check the list from top to bottom, because the merged file follows that list exactly.</li>
+      <li><strong>Order files before you merge.</strong> Add the cover or main document first, then supporting documents in reading order. Drag files up or down the list, or use the up and down controls, and double check the list from top to bottom, because the merged file follows that list exactly.</li>
       <li><strong>Name files with numbers if order matters.</strong> Names like 01 application, 02 certificate, and 03 reference make it easier to spot a mistake before you combine anything.</li>
       <li><strong>Check page orientation and size.</strong> Merging keeps each page at its original size and rotation. If one document is landscape and the rest are portrait, the result will switch back and forth, which is normal on screen but worth fixing in your reader first if you plan to print.</li>
       <li><strong>Compress after merging, not before.</strong> If the final file is too large to email, run the finished merge through <a href="/compress-pdf">Compress PDF</a> once at the end. Compressing each source first adds steps and can reduce quality more than a single final pass.</li>
@@ -75,6 +75,8 @@ const CONTENT = (
 
 export default function MergePdf() {
   const [files, setFiles] = useState([]);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dropIdx, setDropIdx] = useState(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
   const [result, setResult] = useState(null);
@@ -95,6 +97,16 @@ export default function MergePdf() {
     });
   };
   const remove = (idx) => { setResult(null); setFiles((prev) => prev.filter((_, i) => i !== idx)); };
+  const reorderByDrag = (from, to) => {
+    if (from === null || to === null || from === to || from + 1 === to) return;
+    setResult(null);
+    setFiles((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to > from ? to - 1 : to, 0, moved);
+      return next;
+    });
+  };
 
   const merge = async () => {
     if (files.length < 2) {
@@ -134,18 +146,27 @@ export default function MergePdf() {
       slug="merge-pdf"
       path="/merge-pdf"
       title="Merge PDF: Combine PDF Files Free, No Sign-Up | ToolNest"
-      description="Merge PDF files into one document free, in your browser. No upload, no sign-up, no page limit. Your files never leave your device."
+      description="Merge PDF files into one document free, in your browser. Drag files into order, no upload, no sign-up. Files stay on your device."
       h1="Merge PDF"
-      intro="Combine PDF files into one document free, in exactly the order you choose, with no sign-up and no page limit. Everything happens in your browser, so private documents are never uploaded."
+      intro="Combine PDF files into one document free, in exactly the order you choose, with no sign-up and no page limit. Drag files up or down the list to reorder them. Everything happens in your browser, so private documents are never uploaded."
       faqs={FAQS}
       content={CONTENT}
     >
       <FileDrop accept="application/pdf,.pdf" multiple onFiles={addFiles} label="Drop PDF files here, or click to choose them" />
 
+      {files.length > 1 && <p className="reorder-hint">Drag files up or down to reorder them, or use the Up and Down buttons.</p>}
       {files.length > 0 && (
         <ul className="file-list">
           {files.map((f, i) => (
-            <li key={`${f.name}-${i}`} className="file-item">
+            <li
+              key={`${f.name}-${i}`}
+              className={`file-item${dragIdx === i ? ' dragging' : ''}${dropIdx === i && dragIdx !== null && dragIdx !== i ? ' drag-over' : ''}`}
+              draggable
+              onDragStart={() => setDragIdx(i)}
+              onDragOver={(e) => { e.preventDefault(); if (dropIdx !== i) setDropIdx(i); }}
+              onDrop={(e) => { e.preventDefault(); reorderByDrag(dragIdx, i); setDragIdx(null); setDropIdx(null); }}
+              onDragEnd={() => { setDragIdx(null); setDropIdx(null); }}
+            >
               <span className="file-name">{i + 1}. {f.name}</span>
               <span className="file-size">{formatBytes(f.size)}</span>
               <span className="file-actions">
