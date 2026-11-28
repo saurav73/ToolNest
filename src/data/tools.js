@@ -213,8 +213,8 @@ export const TOOLS = [
     path: '/jpg-to-pdf',
     name: 'JPG to PDF',
     category: 'PDF Tools',
-    blurb: 'Turn one or more images into a clean PDF document with A4, Letter or fit-to-image pages, portrait or landscape orientation and margins you choose.',
-    keywords: 'jpg to pdf, image to pdf, convert image pdf, jpg to pdf landscape, image to pdf orientation',
+    blurb: 'Turn one or more images into a clean PDF document with A4, Letter or fit-to-image pages, portrait or landscape orientation and margins you choose, and drag images into order.',
+    keywords: 'jpg to pdf, image to pdf, convert image pdf, jpg to pdf landscape, image to pdf orientation, drag and drop jpg to pdf',
   },
   {
     slug: 'compress-pdf',

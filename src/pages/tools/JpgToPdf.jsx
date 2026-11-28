@@ -42,7 +42,7 @@ const FAQS = [
   },
   {
     q: 'How do I control the page order?',
-    a: 'Pages follow the order of the file list. Use the up and down buttons to rearrange images before creating the PDF, or remove one and add it again to move it to the end.',
+    a: 'Pages follow the order of the file list. Drag an image up or down the list to move it, or use the up and down buttons beside it. You can also remove one and add it again to move it to the end.',
   },
 ];
 
@@ -72,7 +72,7 @@ const CONTENT = (
     <ul>
       <li><strong>Photograph documents flat and straight.</strong> Place the page on a contrasting surface, hold the phone directly above it, and avoid shadows across the text. A straight photo reads far better once it becomes a PDF page.</li>
       <li><strong>Use the orientation control for mixed sets.</strong> Auto gives each image a page that matches its own shape, so a landscape photo gets a landscape page instead of shrinking onto a portrait one. Choose Portrait for all pages if the document will be printed and stapled, since mixed orientations are awkward on paper.</li>
-      <li><strong>Order images before you build.</strong> Use the up and down controls so the cover, form, or first chapter comes first. File names from a phone camera rarely sort in story order, so a quick manual check prevents a jumbled document.</li>
+      <li><strong>Order images before you build.</strong> Drag an image up or down the list, or use the up and down controls, so the cover, form, or first chapter comes first. File names from a phone camera rarely sort in story order, so a quick manual check prevents a jumbled document.</li>
       <li><strong>Watch total size for email.</strong> Ten full resolution phone photos at 4 MB each will produce a PDF of roughly 40 MB, which most email services will reject. If size matters, reduce the images first with <a href="/image-compressor">Image Compressor</a> or resize them with <a href="/image-resizer">Image Resizer</a> before converting.</li>
       <li><strong>Choose PNG for crisp text screenshots.</strong> Screenshots and scanned forms with sharp edges stay cleaner as PNG. Photos are usually smaller and just as clear as JPG, so keeping each image in its original format is a sensible default.</li>
     </ul>
@@ -92,6 +92,8 @@ const CONTENT = (
 
 export default function JpgToPdf() {
   const [files, setFiles] = useState([]);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dropIdx, setDropIdx] = useState(null);
   const [sizeId, setSizeId] = useState('a4');
   const [orientationId, setOrientationId] = useState('portrait');
   const [marginId, setMarginId] = useState('big');
@@ -115,6 +117,16 @@ export default function JpgToPdf() {
     });
   };
   const remove = (idx) => { setResult(null); setFiles((prev) => prev.filter((_, i) => i !== idx)); };
+  const reorderByDrag = (from, to) => {
+    if (from === null || to === null || from === to || from + 1 === to) return;
+    setResult(null);
+    setFiles((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to > from ? to - 1 : to, 0, moved);
+      return next;
+    });
+  };
 
   const build = async () => {
     if (!files.length) {
@@ -179,18 +191,27 @@ export default function JpgToPdf() {
       slug="jpg-to-pdf"
       path="/jpg-to-pdf"
       title="JPG to PDF Converter Free: Combine Images Online | ToolNest"
-      description="Convert JPG, PNG and WebP images into one PDF free. A4 or Letter pages, portrait or landscape, margins you choose. No upload, no sign-up."
+      description="Convert JPG, PNG and WebP images into one PDF free. Drag images into order, A4 or Letter pages, margins you choose. No upload."
       h1="JPG to PDF Converter"
-      intro="Convert and combine one or more images into a single PDF document free. Choose A4, Letter or fit-to-image pages, pick portrait or landscape orientation and a margin, arrange the order, and download, all without uploading your images and without signing up."
+      intro="Convert and combine one or more images into a single PDF document free. Choose A4, Letter or fit-to-image pages, pick portrait or landscape orientation and a margin, drag images up or down to arrange the order, and download, all without uploading your images and without signing up."
       faqs={FAQS}
       content={CONTENT}
     >
       <FileDrop accept="image/jpeg,image/png,image/webp,image/*" multiple onFiles={addFiles} label="Drop images here, or click to choose them" />
 
+      {files.length > 1 && <p className="reorder-hint">Drag images up or down to reorder them, or use the Up and Down buttons.</p>}
       {files.length > 0 && (
         <ul className="file-list">
           {files.map((f, i) => (
-            <li key={`${f.name}-${i}`} className="file-item">
+            <li
+              key={`${f.name}-${i}`}
+              className={`file-item${dragIdx === i ? ' dragging' : ''}${dropIdx === i && dragIdx !== null && dragIdx !== i ? ' drag-over' : ''}`}
+              draggable
+              onDragStart={() => setDragIdx(i)}
+              onDragOver={(e) => { e.preventDefault(); if (dropIdx !== i) setDropIdx(i); }}
+              onDrop={(e) => { e.preventDefault(); reorderByDrag(dragIdx, i); setDragIdx(null); setDropIdx(null); }}
+              onDragEnd={() => { setDragIdx(null); setDropIdx(null); }}
+            >
               <span className="file-name">{i + 1}. {f.name}</span>
               <span className="file-size">{formatBytes(f.size)}</span>
               <span className="file-actions">
